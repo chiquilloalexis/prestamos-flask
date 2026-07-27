@@ -16,19 +16,28 @@ class Config:
     # de entorno y NO la dejes con este valor por defecto.
     SECRET_KEY = os.environ.get("SECRET_KEY", "cambia-esta-clave-en-produccion")
 
-    # Base de datos: por defecto usa SQLite (un solo archivo, sin servidor
-    # aparte, ideal para hosting gratuito como PythonAnywhere free tier).
-    # Si más adelante querés pasar a MySQL (por ejemplo en un plan pago),
-    # definí las variables DB_USER/DB_PASSWORD/DB_HOST/DB_PORT/DB_NAME y
-    # el sistema arma la conexión a MySQL automáticamente.
+    # Base de datos: soporta PostgreSQL (ej: Render), MySQL, o SQLite como
+    # último recurso si no hay nada configurado.
+    #
+    # - Si existe DATABASE_URL (Render la define sola al conectar una base
+    #   de datos), se usa esa. Render a veces la entrega con el prefijo
+    #   "postgres://", que las versiones recientes de SQLAlchemy no
+    #   aceptan -- hay que normalizarlo a "postgresql://".
+    # - Si no hay DATABASE_URL pero sí DB_USER/DB_HOST, arma una conexión
+    #   MySQL (para hosting local con XAMPP/MySQL, por ejemplo).
+    # - Si no hay nada de lo anterior, usa SQLite como último recurso
+    #   (ideal para probar en el plan gratis de PythonAnywhere).
     DB_USER = os.environ.get("DB_USER")
     DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
     DB_HOST = os.environ.get("DB_HOST")
     DB_PORT = os.environ.get("DB_PORT", "3306")
     DB_NAME = os.environ.get("DB_NAME", "prestamos_db")
 
-    if os.environ.get("DATABASE_URL"):
-        SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
+    _database_url = os.environ.get("DATABASE_URL")
+    if _database_url:
+        if _database_url.startswith("postgres://"):
+            _database_url = _database_url.replace("postgres://", "postgresql://", 1)
+        SQLALCHEMY_DATABASE_URI = _database_url
     elif DB_USER and DB_HOST:
         SQLALCHEMY_DATABASE_URI = (
             f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
@@ -40,9 +49,6 @@ class Config:
 
     # Sesión de administrador expira tras un tiempo de inactividad.
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
-
-    # Días sin pago para considerar un préstamo "en mora".
-    DIAS_PARA_MORA = int(os.environ.get("DIAS_PARA_MORA", "2"))
 
     # Protección CSRF (Flask-WTF)
     WTF_CSRF_ENABLED = True
