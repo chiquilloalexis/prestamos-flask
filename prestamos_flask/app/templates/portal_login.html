@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Consultar mi cuenta{% endblock %}
+{% block content %}
+
+<div class="portal-wrap">
+  <div class="portal-card">
+
+    {% if not cliente %}
+      <div class="panel-box">
+        <h1 class="h4 mb-1">Consultar mi cuenta</h1>
+        <p class="text-muted small mb-4">Ingresá tu número de cédula.</p>
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="cedula" class="form-control mb-3 text-center font-monospace"
+                 placeholder="Número de cédula" inputmode="numeric" autofocus required>
+          <button type="submit" class="btn btn-accent w-100 py-2">Ver mi cuenta</button>
+        </form>
+      </div>
+    {% else %}
+      {% set prestamo = cliente.prestamos[-1] if cliente.prestamos else None %}
+      <div class="mb-3">
+        <a href="{{ url_for('portal.entrada') }}" class="text-muted small text-decoration-none">
+          <i class="bi bi-chevron-left"></i> Buscar otra cédula
+        </a>
+      </div>
+      <p class="text-muted small text-uppercase mb-1" style="letter-spacing:.1em;">Tu cuenta</p>
+      <h1 class="h4 mb-3">{{ cliente.nombre_completo }}</h1>
+
+      {% if prestamo %}
+        <div class="panel-box mb-3">
+          <p class="label mb-1">Le queda deber</p>
+          <p class="value font-monospace" style="font-size: 2.2rem;">${{ "{:,.0f}".format(prestamo.saldo_pendiente) }}</p>
+          <div class="progress mb-3" style="height: 6px; background: rgba(255,255,255,.05);">
+            <div class="progress-bar" style="width: {{ (prestamo.total_cobrado / prestamo.total_pagar * 100) if prestamo.total_pagar else 0 }}%; background:#4ade80;"></div>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <p class="label">Fecha del préstamo</p>
+              <p class="small font-monospace">{{ prestamo.fecha_prestamo.strftime('%d/%m/%Y') }}</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Valor prestado</p>
+              <p class="small font-monospace">${{ "{:,.0f}".format(prestamo.valor_inicial) }}</p>
+            </div>
+            <div class="col-6">
+              <p class="label">% de interés</p>
+              <p class="small font-monospace">{{ prestamo.porcentaje_interes }}%</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Total a pagar</p>
+              <p class="small font-monospace">${{ "{:,.0f}".format(prestamo.total_pagar) }}</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Cuota diaria</p>
+              <p class="small font-monospace">${{ "{:,.0f}".format(prestamo.valor_cuota) }}</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Cuotas</p>
+              <p class="small font-monospace">{{ prestamo.cuotas_pagadas }} pagadas / {{ prestamo.cuotas_pendientes }} pendientes</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Pagado a la fecha</p>
+              <p class="small font-monospace">${{ "{:,.0f}".format(prestamo.total_cobrado) }}</p>
+            </div>
+            <div class="col-6">
+              <p class="label">Estado</p>
+              {% if prestamo.estado == 'cancelado' %}
+                <span class="badge badge-cancelado">Préstamo cancelado</span>
+              {% elif prestamo.estado == 'mora' %}
+                <span class="badge badge-mora">En mora</span>
+              {% else %}
+                <span class="badge badge-activo">Activo, al día</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <p class="label mb-2">Historial de pagos</p>
+        <div class="panel-box p-0">
+          <table class="table table-dark-custom mb-0">
+            <thead><tr><th>Fecha</th><th>Valor</th><th>Saldo</th></tr></thead>
+            <tbody>
+              {% for pago in prestamo.pagos %}
+              <tr>
+                <td class="small">{{ pago.fecha.strftime('%d/%m/%Y') }}</td>
+                <td class="font-monospace small">${{ "{:,.0f}".format(pago.valor_pagado) }}</td>
+                <td class="font-monospace small text-muted">${{ "{:,.0f}".format(pago.saldo_restante) }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center text-muted small py-3">Todavía no hay pagos registrados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="panel-box text-center py-4">
+          <p class="text-muted mb-0">No tenés préstamos registrados todavía.</p>
+        </div>
+      {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+{% block content_public %}{{ self.content() }}{% endblock %}

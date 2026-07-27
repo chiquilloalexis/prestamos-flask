@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Panel{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="text-muted small mb-0 text-uppercase" style="letter-spacing:.1em;">{{ hoy.strftime('%A, %d de %B') }}</p>
+    <h1 class="h3 mb-0">Panel general</h1>
+  </div>
+</div>
+
+<div class="panel-box mb-4" style="background: linear-gradient(135deg, #1b2c22, #141f19); border-color: #2e4536;">
+  <p class="label mb-1">Cobros de hoy</p>
+  <p class="value profit" style="font-size: 2.4rem;">${{ "{:,.0f}".format(cobros_hoy) }}</p>
+</div>
+
+<p class="text-muted small mb-3">
+  <i class="bi bi-info-circle"></i>
+  Los valores "del mes" se calculan sobre el mes calendario actual y se reinician solos el día 1 de cada mes — no hace falta hacer ningún corte manual.
+</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Clientes totales</p>
+      <p class="value">{{ clientes_total }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Préstamos activos</p>
+      <p class="value">{{ activos }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Finalizados</p>
+      <p class="value">{{ finalizados }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Ganancia del mes</p>
+      <p class="value profit">${{ "{:,.0f}".format(ganancia_mes) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Dinero prestado</p>
+      <p class="value">${{ "{:,.0f}".format(dinero_prestado) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Dinero recuperado</p>
+      <p class="value profit">${{ "{:,.0f}".format(dinero_recuperado) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Pendiente por cobrar</p>
+      <p class="value">${{ "{:,.0f}".format(dinero_pendiente) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Cobros del mes</p>
+      <p class="value">${{ "{:,.0f}".format(cobros_mes) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Gastos del mes</p>
+      <p class="value expense">${{ "{:,.0f}".format(total_gastos_mes) }}</p>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat">
+      <p class="label">Ganancia neta del mes</p>
+      <p class="value profit">${{ "{:,.0f}".format(ganancia_neta_mes) }}</p>
+      <p class="text-muted small mb-0" style="font-size: .68rem;">Ganancia − gastos</p>
+    </div>
+  </div>
+</div>
+
+{% if en_mora %}
+<div class="alert" style="background: rgba(252,211,77,.1); border: 1px solid rgba(252,211,77,.3); color: #fcd34d;">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  {{ en_mora|length }} préstamo(s) en mora:
+  {% for p in en_mora[:5] %}
+    <a href="{{ url_for('admin.cliente_detalle', cliente_id=p.cliente_id) }}" class="alert-link">{{ p.cliente.nombre_completo }}</a>{{ ", " if not loop.last }}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="panel-box">
+      <p class="label mb-3">Cobros y ganancia por mes</p>
+      <canvas id="chartCobros" height="120"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="panel-box">
+      <p class="label mb-3">Clientes nuevos por mes</p>
+      <canvas id="chartClientes" height="120"></canvas>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const labels = {{ meses_labels|tojson }};
+
+  new Chart(document.getElementById('chartCobros'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Cobrado',
+          data: {{ cobros_por_mes|tojson }},
+          borderColor: '#8fa396',
+          backgroundColor: 'transparent',
+          tension: 0.3,
+        },
+        {
+          label: 'Ganancia',
+          data: {{ ganancia_por_mes|tojson }},
+          borderColor: '#4ade80',
+          backgroundColor: 'transparent',
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      plugins: { legend: { labels: { color: '#edeae2' } } },
+      scales: {
+        x: { ticks: { color: '#8fa396' }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { ticks: { color: '#8fa396' }, grid: { color: 'rgba(255,255,255,.05)' } },
+      },
+    },
+  });
+
+  new Chart(document.getElementById('chartClientes'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Clientes nuevos',
+        data: {{ clientes_por_mes|tojson }},
+        backgroundColor: '#4ade80',
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8fa396' }, grid: { display: false } },
+        y: { ticks: { color: '#8fa396', precision: 0 }, grid: { color: 'rgba(255,255,255,.05)' } },
+      },
+    },
+  });
+</script>
+{% endblock %}

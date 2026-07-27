@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar cliente' if cliente else 'Nuevo cliente' }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.clientes_list') }}" class="text-muted small text-decoration-none">
+  <i class="bi bi-chevron-left"></i> Clientes
+</a>
+<h1 class="h3 mt-2 mb-4">{{ 'Editar cliente' if cliente else 'Nuevo cliente' }}</h1>
+
+<form method="POST" class="panel-box" style="max-width: 640px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label small text-muted">Número de cédula</label>
+      <input type="text" name="cedula" class="form-control" required
+             value="{{ cliente.cedula if cliente else (form.cedula if form else '') }}">
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Nombres</label>
+      <input type="text" name="nombres" class="form-control" required
+             value="{{ cliente.nombres if cliente else (form.nombres if form else '') }}">
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Apellidos</label>
+      <input type="text" name="apellidos" class="form-control" required
+             value="{{ cliente.apellidos if cliente else (form.apellidos if form else '') }}">
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Teléfono</label>
+      <input type="text" name="telefono" class="form-control"
+             value="{{ cliente.telefono if cliente else (form.telefono if form else '') }}">
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Barrio</label>
+      <input type="text" name="barrio" class="form-control"
+             value="{{ cliente.barrio if cliente else (form.barrio if form else '') }}">
+    </div>
+    <div class="col-12">
+      <label class="form-label small text-muted">Dirección</label>
+      <input type="text" name="direccion" class="form-control"
+             value="{{ cliente.direccion if cliente else (form.direccion if form else '') }}">
+    </div>
+
+    {% if not cliente %}
+    <div class="col-12"><hr class="border-secondary"></div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Fecha del préstamo</label>
+      <input type="date" name="fecha_prestamo" id="fecha_prestamo" class="form-control" value="{{ hoy }}">
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Cantidad de cuotas</label>
+      <input type="number" name="cantidad_cuotas" id="cantidad_cuotas" class="form-control" value="20" min="1" required>
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">Valor prestado</label>
+      <input type="number" step="0.01" name="valor_inicial" id="valor_inicial" class="form-control" required>
+    </div>
+    <div class="col-6">
+      <label class="form-label small text-muted">% de interés</label>
+      <input type="number" step="0.01" name="porcentaje_interes" id="porcentaje_interes" class="form-control" value="30">
+    </div>
+    <div class="col-12">
+      <label class="form-label small text-muted">Observaciones</label>
+      <textarea name="observaciones" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="col-12">
+      <div class="panel-box" style="background:#0f1512;">
+        <p class="small text-muted mb-1">Total a pagar: <span id="totalPagar" class="text-light font-monospace">$0</span></p>
+        <p class="small text-muted mb-1">Valor de la cuota: <span id="valorCuota" class="text-light font-monospace">$0</span></p>
+        <p class="small text-muted mb-0">Ganancia total prevista: <span id="ganancia" class="font-monospace" style="color:#7fe8a8;">$0</span></p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <button type="submit" class="btn btn-accent w-100 mt-4 py-2">
+    {{ 'Guardar cambios' if cliente else 'Guardar cliente' }}
+  </button>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+{% if not cliente %}
+<script>
+  function recalcular() {
+    const valor = parseFloat(document.getElementById('valor_inicial').value) || 0;
+    const pct = parseFloat(document.getElementById('porcentaje_interes').value) || 0;
+    const cuotas = parseInt(document.getElementById('cantidad_cuotas').value) || 1;
+    const total = valor + (valor * pct / 100);
+    const cuota = cuotas > 0 ? total / cuotas : total;
+    document.getElementById('totalPagar').textContent = '$' + total.toLocaleString('es-AR', {maximumFractionDigits: 0});
+    document.getElementById('valorCuota').textContent = '$' + cuota.toLocaleString('es-AR', {maximumFractionDigits: 0});
+    document.getElementById('ganancia').textContent = '$' + (total - valor).toLocaleString('es-AR', {maximumFractionDigits: 0});
+  }
+  ['valor_inicial', 'porcentaje_interes', 'cantidad_cuotas'].forEach(id => {
+    document.getElementById(id).addEventListener('input', recalcular);
+  });
+</script>
+{% endif %}
+{% endblock %}

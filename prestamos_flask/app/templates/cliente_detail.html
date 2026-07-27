@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ cliente.nombre_completo }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <a href="{{ url_for('admin.clientes_list') }}" class="text-muted small text-decoration-none">
+      <i class="bi bi-chevron-left"></i> Clientes
+    </a>
+    <h1 class="h3 mt-1 mb-1">{{ cliente.nombre_completo }}</h1>
+    <div class="text-muted small">
+      <i class="bi bi-credit-card"></i> C.C. {{ cliente.cedula }}
+      {% if cliente.telefono %} · <i class="bi bi-telephone"></i> {{ cliente.telefono }}{% endif %}
+      {% if cliente.direccion or cliente.barrio %} · <i class="bi bi-geo-alt"></i> {{ cliente.direccion }}{% if cliente.direccion and cliente.barrio %}, {% endif %}{{ cliente.barrio }}{% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if current_user.es_admin %}
+    <a href="{{ url_for('admin.cliente_editar', cliente_id=cliente.id) }}" class="btn btn-sm btn-outline-light">
+      <i class="bi bi-pencil"></i> Editar
+    </a>
+    <form method="POST" action="{{ url_for('admin.cliente_eliminar', cliente_id=cliente.id) }}"
+          onsubmit="return confirm('¿Eliminar a {{ cliente.nombre_completo }}? Se borrará todo su historial. No se puede deshacer.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if prestamo %}
+<div class="panel-box mb-4">
+  <div class="row g-4 mb-3">
+    <div class="col-6 col-md-3">
+      <p class="label">Prestado</p>
+      <p class="value font-monospace" style="font-size:1.2rem;">${{ "{:,.0f}".format(prestamo.valor_inicial) }}</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Interés</p>
+      <p class="value font-monospace" style="font-size:1.2rem;">{{ prestamo.porcentaje_interes }}%</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Cuota diaria</p>
+      <p class="value font-monospace" style="font-size:1.2rem;">${{ "{:,.0f}".format(prestamo.valor_cuota) }}</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Cuotas</p>
+      <p class="value font-monospace" style="font-size:1.2rem;">{{ prestamo.cuotas_pagadas }}/{{ prestamo.cantidad_cuotas }}</p>
+    </div>
+  </div>
+  <hr class="border-secondary">
+  <div class="row g-4 align-items-end">
+    <div class="col-6 col-md-3">
+      <p class="label">Cobrado a la fecha</p>
+      <p class="value font-monospace">${{ "{:,.0f}".format(prestamo.total_cobrado) }}</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Ganancia dejada</p>
+      <p class="value profit font-monospace">${{ "{:,.0f}".format(prestamo.ganancia_generada) }}</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Le queda deber</p>
+      <p class="value font-monospace" style="font-size:2rem;">${{ "{:,.0f}".format(prestamo.saldo_pendiente) }}</p>
+    </div>
+    <div class="col-6 col-md-3">
+      <p class="label">Estado</p>
+      {% if prestamo.estado == 'cancelado' %}
+        <span class="badge badge-cancelado fs-6">Saldado</span>
+      {% elif prestamo.estado == 'mora' %}
+        <span class="badge badge-mora fs-6">En mora</span>
+      {% else %}
+        <span class="badge badge-activo fs-6">Activo</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,.05);">
+    <div class="progress-bar" style="width: {{ (prestamo.total_cobrado / prestamo.total_pagar * 100) if prestamo.total_pagar else 0 }}%; background: #4ade80;"></div>
+  </div>
+  {% if prestamo.observaciones %}
+    <p class="small text-muted mt-3 mb-0"><i class="bi bi-sticky"></i> {{ prestamo.observaciones }}</p>
+  {% endif %}
+</div>
+
+<div class="panel-box mb-4" style="background:#0f1512;">
+  <p class="small text-muted mb-1"><i class="bi bi-key"></i> Acceso del cliente</p>
+  <p class="small text-muted mb-0">
+    Puede consultar su cuenta en <span class="text-light">/portal</span> ingresando su cédula:
+    <span class="text-light font-monospace">{{ cliente.cedula }}</span>
+  </p>
+</div>
+
+{% if not prestamo.esta_saldado %}
+<div class="panel-box mb-4">
+  <p class="label mb-3">Registrar cobro de hoy</p>
+  <form method="POST" action="{{ url_for('admin.registrar_pago', prestamo_id=prestamo.id) }}" class="row g-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-12 col-md-4">
+      <input type="number" step="0.01" name="valor_pagado" class="form-control" placeholder="Monto"
+             value="{{ prestamo.valor_cuota|int }}" required>
+    </div>
+    <div class="col-12 col-md-3">
+      <input type="date" name="fecha" class="form-control" value="{{ hoy }}">
+    </div>
+    <div class="col-12 col-md-3">
+      <input type="text" name="observacion" class="form-control" placeholder="Observación (opcional)">
+    </div>
+    <div class="col-12 col-md-2">
+      <button type="submit" class="btn btn-accent w-100">Cobrar</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<p class="label mb-3">Historial de pagos</p>
+<div class="table-responsive mb-4">
+  <table class="table table-dark-custom">
+    <thead>
+      <tr><th>Fecha</th><th>Valor pagado</th><th>Saldo restante</th><th>Observación</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for pago in prestamo.pagos %}
+      <tr>
+        <td>{{ pago.fecha.strftime('%d/%m/%Y') }}</td>
+        <td class="font-monospace">${{ "{:,.0f}".format(pago.valor_pagado) }}</td>
+        <td class="font-monospace text-muted">${{ "{:,.0f}".format(pago.saldo_restante) }}</td>
+        <td class="text-muted small">{{ pago.observacion or '—' }}</td>
+        <td class="text-end">
+          {% if current_user.es_admin %}
+          <form method="POST" action="{{ url_for('admin.pago_eliminar', pago_id=pago.id) }}"
+                onsubmit="return confirm('¿Eliminar este pago?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-4">Todavía no registró pagos.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="panel-box text-center py-5">
+  <p class="text-muted mb-3">Este cliente todavía no tiene un préstamo registrado.</p>
+</div>
+{% endif %}
+
+{% endblock %}

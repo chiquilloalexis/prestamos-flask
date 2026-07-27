@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+
+<h1 class="h3 mb-4">Reportes</h1>
+
+<form method="GET" class="mb-4">
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    {% for valor, etiqueta in [('dia','Día'), ('semana','Semana'), ('mes','Mes'), ('anio','Año'), ('cliente','Cliente')] %}
+      <button type="submit" name="filtro" value="{{ valor }}"
+              class="btn btn-sm {{ 'btn-accent' if filtro == valor else 'btn-outline-light' }}">
+        {{ etiqueta }}
+      </button>
+    {% endfor %}
+  </div>
+
+  {% if filtro == 'cliente' %}
+  <select name="cliente_id" class="form-select" style="max-width: 320px;" onchange="this.form.submit()">
+    <option value="">Seleccioná un cliente</option>
+    {% for c in clientes %}
+      <option value="{{ c.id }}" {{ 'selected' if cliente_id == c.id }}>{{ c.nombre_completo }} — {{ c.cedula }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+</form>
+
+<div class="panel-box mb-4" style="max-width: 480px;">
+  <p class="text-muted small mb-3">Periodo: {{ reporte.inicio.strftime('%d/%m/%Y') }} — {{ reporte.fin.strftime('%d/%m/%Y') }}</p>
+  <div class="row g-4">
+    <div class="col-6">
+      <p class="label">Total prestado</p>
+      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.total_prestado) }}</p>
+    </div>
+    <div class="col-6">
+      <p class="label">Total cobrado</p>
+      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.total_cobrado) }}</p>
+    </div>
+    <div class="col-6">
+      <p class="label">Ganancia generada</p>
+      <p class="value profit font-monospace">${{ "{:,.0f}".format(reporte.ganancia_generada) }}</p>
+    </div>
+    <div class="col-6">
+      <p class="label">Capital pendiente</p>
+      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.capital_pendiente) }}</p>
+    </div>
+    <div class="col-6">
+      <p class="label">Gastos administrativos</p>
+      <p class="value expense font-monospace">${{ "{:,.0f}".format(reporte.total_gastos) }}</p>
+    </div>
+    <div class="col-6">
+      <p class="label">Ganancia neta</p>
+      <p class="value profit font-monospace">${{ "{:,.0f}".format(reporte.ganancia_neta) }}</p>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2">
+  <a href="{{ url_for('reports.exportar_csv', filtro=filtro, cliente_id=cliente_id) }}" class="btn btn-outline-light">
+    <i class="bi bi-file-earmark-excel"></i> Exportar Excel (CSV)
+  </a>
+  <a href="{{ url_for('reports.exportar_pdf', filtro=filtro, cliente_id=cliente_id) }}" class="btn btn-outline-light">
+    <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+  </a>
+</div>
+
+{% endblock %}
