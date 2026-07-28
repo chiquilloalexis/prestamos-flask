@@ -1,7 +1,7 @@
 import click
 from flask.cli import with_appcontext
 from app import db
-from app.models import Usuario, Prestamo
+from app.models import Usuario
 
 
 def register(app):
@@ -38,22 +38,3 @@ def register(app):
         db.session.add(user)
         db.session.commit()
         click.echo(f"Empleado '{username}' creado correctamente.")
-
-    @app.cli.command("actualizar-mora")
-    @with_appcontext
-    def actualizar_mora():
-        """Recorre todos los préstamos activos y actualiza su estado
-        (activo / en mora / cancelado). Pensado para correrse una vez
-        por día via cron."""
-        prestamos = Prestamo.query.filter(
-            Prestamo.estado != Prestamo.ESTADO_CANCELADO
-        ).all()
-        dias_mora = app.config.get("DIAS_PARA_MORA", 2)
-        actualizados = 0
-        for p in prestamos:
-            estado_anterior = p.estado
-            p.actualizar_estado(dias_mora)
-            if p.estado != estado_anterior:
-                actualizados += 1
-        db.session.commit()
-        click.echo(f"Listo. {actualizados} préstamo(s) cambiaron de estado.")

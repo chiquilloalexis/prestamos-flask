@@ -46,9 +46,7 @@
         <td>
           {% if prestamo %}
             {% if prestamo.estado == 'cancelado' %}
-              <span class="badge badge-cancelado">Saldado</span>
-            {% elif prestamo.estado == 'mora' %}
-              <span class="badge badge-mora">En mora</span>
+              <span class="badge badge-cancelado">Inactivo</span>
             {% else %}
               <span class="badge badge-activo">Activo</span>
             {% endif %}

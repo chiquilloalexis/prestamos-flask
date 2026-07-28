@@ -83,16 +83,6 @@
   </div>
 </div>
 
-{% if en_mora %}
-<div class="alert" style="background: rgba(252,211,77,.1); border: 1px solid rgba(252,211,77,.3); color: #fcd34d;">
-  <i class="bi bi-exclamation-triangle-fill"></i>
-  {{ en_mora|length }} préstamo(s) en mora:
-  {% for p in en_mora[:5] %}
-    <a href="{{ url_for('admin.cliente_detalle', cliente_id=p.cliente_id) }}" class="alert-link">{{ p.cliente.nombre_completo }}</a>{{ ", " if not loop.last }}
-  {% endfor %}
-</div>
-{% endif %}
-
 <div class="row g-3">
   <div class="col-12 col-lg-7">
     <div class="panel-box">

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   username VARCHAR(80) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   nombre_completo VARCHAR(150),
+  rol ENUM('admin', 'empleado') NOT NULL DEFAULT 'admin',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -45,7 +46,7 @@ CREATE TABLE IF NOT EXISTS prestamos (
   cantidad_cuotas INT NOT NULL,
   valor_cuota DECIMAL(12,2) NOT NULL,
   observaciones TEXT,
-  estado ENUM('activo', 'mora', 'cancelado') NOT NULL DEFAULT 'activo',
+  estado ENUM('activo', 'cancelado') NOT NULL DEFAULT 'activo',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
   INDEX idx_estado (estado)
@@ -62,6 +63,17 @@ CREATE TABLE IF NOT EXISTS pagos (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (prestamo_id) REFERENCES prestamos(id) ON DELETE CASCADE,
   INDEX idx_fecha (fecha)
+) ENGINE=InnoDB;
+
+-- ---------- gastos ----------
+CREATE TABLE IF NOT EXISTS gastos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  fecha DATE NOT NULL,
+  categoria VARCHAR(80) NOT NULL,
+  descripcion VARCHAR(255),
+  monto DECIMAL(12,2) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_fecha_gasto (fecha)
 ) ENGINE=InnoDB;
 
 -- ---------- configuraciones ----------

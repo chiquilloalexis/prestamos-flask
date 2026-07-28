@@ -134,7 +134,6 @@ body {
 }
 
 .badge-activo { background: rgba(255,255,255,0.1); color: var(--text); }
-.badge-mora { background: rgba(252, 211, 77, 0.15); color: #fcd34d; }
 .badge-cancelado { background: rgba(74, 222, 128, 0.15); color: var(--accent-soft); }
 
 .btn-accent {

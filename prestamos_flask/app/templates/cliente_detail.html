@@ -65,9 +65,7 @@
     <div class="col-6 col-md-3">
       <p class="label">Estado</p>
       {% if prestamo.estado == 'cancelado' %}
-        <span class="badge badge-cancelado fs-6">Saldado</span>
-      {% elif prestamo.estado == 'mora' %}
-        <span class="badge badge-mora fs-6">En mora</span>
+        <span class="badge badge-cancelado fs-6">Inactivo</span>
       {% else %}
         <span class="badge badge-activo fs-6">Activo</span>
       {% endif %}

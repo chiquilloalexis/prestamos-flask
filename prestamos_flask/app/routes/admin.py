@@ -4,11 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-<<<<<<< HEAD
 from sqlalchemy import or_
-=======
-from sqlalchemy import or_, extract
->>>>>>> 98ddfd8 (Corregir consultas compatibles con PostgreSQL)
 
 from app import db
 from app.models import Cliente, Prestamo, Pago, Gasto
@@ -105,17 +101,11 @@ def _serie_ultimos_meses(n):
     cobros, ganancia = [], []
 
     for (y, m) in meses:
-<<<<<<< HEAD
         inicio, fin = _rango_mes(y, m)
         # Filtramos por rango de fechas (no con YEAR()/MONTH()) para que
         # funcione igual en MySQL y en SQLite -- SQLite no tiene esas
         # funciones y el dashboard se rompía con un error 500 al usarlas.
         pagos = Pago.query.filter(Pago.fecha >= inicio, Pago.fecha <= fin).all()
-=======
-        pagos = Pago.query.filter(
-            db.extract("year", Pago.fecha) == y, db.extract("month", Pago.fecha) == m
-        ).all()
->>>>>>> 98ddfd8 (Corregir consultas compatibles con PostgreSQL)
         total_cobrado = sum((p.valor_pagado for p in pagos), Decimal("0"))
         total_ganancia = Decimal("0")
         for p in pagos:
@@ -132,16 +122,16 @@ def _serie_clientes_nuevos(n):
     meses = []
     for i in range(n - 1, -1, -1):
         m = (hoy.month - i - 1) % 12 + 1
-<<<<<<< HEAD
-        y = hoy.year + ((hoy.month - i - 1) //
-=======
         y = hoy.year + ((hoy.month - i - 1) // 12)
         meses.append((y, m))
     labels = [f"{m:02d}/{y}" for (y, m) in meses]
     counts = []
     for (y, m) in meses:
+        inicio, fin = _rango_mes(y, m)
+        inicio_dt = datetime.combine(inicio, datetime.min.time())
+        fin_dt = datetime.combine(fin, datetime.max.time())
         c = Cliente.query.filter(
-            db.extract("year", Cliente.created_at) == y, db.extract("month", Cliente.created_at) == m
+            Cliente.created_at >= inicio_dt, Cliente.created_at <= fin_dt
         ).count()
         counts.append(c)
     return labels, counts
@@ -350,4 +340,3 @@ def pago_eliminar(pago_id):
     db.session.commit()
     flash("Pago eliminado y saldo recalculado.", "info")
     return redirect(url_for("admin.cliente_detalle", cliente_id=cliente_id))
->>>>>>> 98ddfd8 (Corregir consultas compatibles con PostgreSQL)
