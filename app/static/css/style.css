@@ -1,0 +1,185 @@
+:root {
+  --bg: #0f1512;
+  --panel: #171f1b;
+  --panel-2: #141a16;
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #edeae2;
+  --muted: #8fa396;
+  --accent: #4ade80;
+  --accent-soft: #7fe8a8;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, sans-serif;
+}
+
+.sidebar {
+  width: 230px;
+  min-height: 100vh;
+  background: var(--panel-2);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+
+.sidebar-brand {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-decoration: none;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.sidebar-link.active {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--accent-soft);
+}
+
+.content {
+  min-height: 100vh;
+  max-width: 1200px;
+}
+
+.card-stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.1rem 1.25rem;
+  transition: transform 0.15s ease;
+}
+
+.card-stat:hover {
+  transform: translateY(-2px);
+}
+
+.card-stat .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.card-stat .value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-stat .value.profit {
+  color: var(--accent-soft);
+}
+
+/* Igual que arriba, pero sin requerir estar dentro de .card-stat
+   (usado en la tarjeta grande de "Cobros de hoy" y similares). */
+.value.profit {
+  color: var(--accent-soft);
+}
+
+.panel-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+.table-dark-custom {
+  /* Bootstrap 5.3 pinta el fondo de cada celda usando estas variables,
+     no el fondo del elemento <table>. Si solo ponemos "background" acá
+     arriba, cada celda lo tapa igual con blanco. Hay que pisar las
+     variables para que el tema oscuro se aplique en cada celda. */
+  --bs-table-bg: var(--panel);
+  --bs-table-color: var(--text);
+  --bs-table-striped-bg: var(--panel-2);
+  --bs-table-striped-color: var(--text);
+  --bs-table-active-bg: var(--panel-2);
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+  --bs-table-hover-color: var(--text);
+  --bs-table-border-color: var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.table-dark-custom th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-dark-custom td {
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--text);
+}
+
+.badge-activo { background: rgba(255,255,255,0.1); color: var(--text); }
+.badge-cancelado { background: rgba(74, 222, 128, 0.15); color: var(--accent-soft); }
+
+.btn-accent {
+  background: var(--accent);
+  color: #0f1512;
+  font-weight: 600;
+  border: none;
+}
+.btn-accent:hover { background: var(--accent-soft); color: #0f1512; }
+
+.form-control, .form-select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.form-control:focus, .form-select:focus {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.2rem rgba(74, 222, 128, 0.15);
+}
+
+/* Portal público del cliente: fondo simple, centrado, sin sidebar */
+.portal-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.portal-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* Bootstrap define .text-muted para fondos claros (gris casi negro),
+   por eso queda casi invisible sobre nuestro tema oscuro. Lo pisamos. */
+.text-muted {
+  color: var(--muted) !important;
+}
+
+.value.expense {
+  color: #f87171;
+}
+
+.badge-expense {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}

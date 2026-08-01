@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+
+<h1 class="h3 mb-4">Usuarios del sistema</h1>
+
+<div class="panel-box mb-4" style="max-width: 560px;">
+  <p class="label mb-3">Crear usuario</p>
+  <form method="POST" action="{{ url_for('usuarios.usuario_nuevo') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-2">
+      <div class="col-12 col-md-6">
+        <input type="text" name="username" class="form-control" placeholder="Usuario" required>
+      </div>
+      <div class="col-12 col-md-6">
+        <input type="password" name="password" class="form-control" placeholder="Contraseña" required>
+      </div>
+      <div class="col-12 col-md-6">
+        <input type="text" name="nombre_completo" class="form-control" placeholder="Nombre completo (opcional)">
+      </div>
+      <div class="col-12 col-md-6">
+        <select name="rol" class="form-select">
+          <option value="empleado">Empleado (solo clientes y pagos)</option>
+          <option value="admin">Administrador (acceso total)</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-accent w-100">Crear usuario</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<p class="label mb-3">Usuarios existentes</p>
+<div class="table-responsive">
+  <table class="table table-dark-custom align-middle">
+    <thead>
+      <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td class="font-monospace">{{ u.username }}</td>
+        <td class="text-muted small">{{ u.nombre_completo or '—' }}</td>
+        <td>
+          {% if u.es_admin %}
+            <span class="badge badge-cancelado">Administrador</span>
+          {% else %}
+            <span class="badge badge-activo">Empleado</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          {% if u.id != current_user.id %}
+          <form method="POST" action="{{ url_for('usuarios.usuario_eliminar', usuario_id=u.id) }}"
+                onsubmit="return confirm('¿Eliminar al usuario {{ u.username }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
+          </form>
+          {% else %}
+          <span class="text-muted small">Vos</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

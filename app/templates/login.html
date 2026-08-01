@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block content_public %}
+<div class="portal-wrap">
+  <div class="portal-card">
+    <div class="panel-box">
+      <div class="text-center mb-4">
+        <i class="bi bi-lock-fill" style="font-size: 2rem; color: #7fe8a8;"></i>
+        <h1 class="h4 mt-2 mb-0">Acceso administrador</h1>
+        <p class="text-muted small">Ingresá tus credenciales para entrar</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label small text-muted">Usuario</label>
+          <input type="text" name="username" class="form-control" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted">Contraseña</label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-accent w-100 py-2">Entrar</button>
+      </form>
+      <div class="text-center mt-3">
+        <a href="{{ url_for('portal.entrada') }}" class="small text-muted">Soy cliente, quiero consultar mi cuenta</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
