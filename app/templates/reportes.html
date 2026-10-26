@@ -1,86 +1,134 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}Reportes{% endblock %}
 {% block content %}
-
-<h1 class="h3 mb-4">Reportes</h1>
-
-<form method="GET" class="mb-4">
-  <div class="d-flex flex-wrap gap-2 mb-3">
-    {% for valor, etiqueta in [('dia','Día'), ('semana','Semana'), ('mes','Este mes'), ('mes_especifico','Mes anterior / específico'), ('rango','Rango de fechas'), ('anio','Año'), ('cliente','Cliente')] %}
-      <button type="submit" name="filtro" value="{{ valor }}"
-              class="btn btn-sm {{ 'btn-accent' if filtro == valor else 'btn-outline-light' }}">
-        {{ etiqueta }}
-      </button>
-    {% endfor %}
+{% set cid = cliente.id if cliente else None %}
+<header class="page-head">
+  <div><h1>Reportes</h1><p class="page-head__sub">Elige un día, un mes, un año o un rango de fechas.</p></div>
+  <div class="actions">
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('reports.exportar_csv', cliente_id=cid, **periodo.params) }}">{{ ui.icon('download', 16) }} Excel (CSV)</a>
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('reports.exportar_pdf', cliente_id=cid, **periodo.params) }}">{{ ui.icon('file', 16) }} PDF</a>
   </div>
+</header>
 
-  {% if filtro == 'cliente' %}
-  <select name="cliente_id" class="form-select" style="max-width: 320px;" onchange="this.form.submit()">
-    <option value="">Seleccioná un cliente</option>
-    {% for c in clientes %}
-      <option value="{{ c.id }}" {{ 'selected' if cliente_id == c.id }}>{{ c.nombre_completo }} — {{ c.cedula }}</option>
+<nav class="tabs" aria-label="Atajos de período">
+  {% for etiqueta, p in atajos %}
+  <a class="tab" href="{{ url_for('reports.index', cliente_id=cid, **p) }}" {% if p == periodo.params %}aria-current="true"{% endif %}>{{ etiqueta }}</a>
+  {% endfor %}
+</nav>
+
+<form method="get" class="card filters" data-filtro-periodo>
+  <fieldset class="seg">
+    <legend>Ver por</legend>
+    {% for valor, etiqueta in [('dia', 'Día'), ('mes', 'Mes'), ('anio', 'Año'), ('rango', 'Rango de fechas'), ('todo', 'Todo')] %}
+    <label><input type="radio" name="tipo" value="{{ valor }}" {% if periodo.tipo == valor %}checked{% endif %}><span>{{ etiqueta }}</span></label>
     {% endfor %}
-  </select>
-  {% endif %}
-
-  {% if filtro == 'mes_especifico' %}
-  <input type="month" name="mes" class="form-control" style="max-width: 220px;"
-         value="{{ mes or '' }}" onchange="this.form.submit()">
-  <p class="text-muted small mt-2 mb-0">Elegí cualquier mes (por ejemplo, el anterior) para ver cuánto ganaste ese mes puntual.</p>
-  {% endif %}
-
-  {% if filtro == 'rango' %}
-  <div class="d-flex flex-wrap align-items-end gap-2">
-    <div>
-      <label class="form-label small text-muted d-block mb-1">Desde</label>
-      <input type="date" name="desde" class="form-control" value="{{ desde or '' }}">
+  </fieldset>
+  <div class="filters__row">
+    <div class="field" data-panel="dia"><label for="f-dia">Día</label><input class="input" id="f-dia" type="date" name="dia" max="{{ hoy.isoformat() }}" value="{{ dia_valor }}"></div>
+    <div class="field" data-panel="mes"><label for="f-mes">Mes</label>
+      <select class="input" id="f-mes" name="mes">{% for n, nombre in meses %}<option value="{{ n }}" {% if n == mes_valor %}selected{% endif %}>{{ nombre|capitalize }}</option>{% endfor %}</select>
     </div>
-    <div>
-      <label class="form-label small text-muted d-block mb-1">Hasta</label>
-      <input type="date" name="hasta" class="form-control" value="{{ hasta or '' }}">
+    <div class="field" data-panel="mes anio"><label for="f-anio">Año</label>
+      <select class="input" id="f-anio" name="anio">{% for a in anios %}<option value="{{ a }}" {% if a == anio_valor %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
     </div>
-    <button type="submit" class="btn btn-accent">Aplicar</button>
+    <div class="field" data-panel="rango"><label for="f-desde">Desde</label><input class="input" id="f-desde" type="date" name="desde" max="{{ hoy.isoformat() }}" value="{{ desde_valor }}"></div>
+    <div class="field" data-panel="rango"><label for="f-hasta">Hasta</label><input class="input" id="f-hasta" type="date" name="hasta" max="{{ hoy.isoformat() }}" value="{{ hasta_valor }}"></div>
+    <div class="field field--ancho"><label for="f-cliente">Cliente</label>
+      <select class="input" id="f-cliente" name="cliente_id">
+        <option value="">Todos los clientes</option>
+        {% for c in clientes %}<option value="{{ c.id }}" {% if cliente and cliente.id == c.id %}selected{% endif %}>{{ (c.nombres ~ ' ' ~ c.apellidos)|titulo }} ({{ c.cedula }})</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn--primary" type="submit">Ver reporte</button>
   </div>
-  {% endif %}
 </form>
 
-<div class="panel-box mb-4" style="max-width: 480px;">
-  <p class="text-muted small mb-3">Periodo: {{ reporte.inicio.strftime('%d/%m/%Y') }} — {{ reporte.fin.strftime('%d/%m/%Y') }}</p>
-  <div class="row g-4">
-    <div class="col-6">
-      <p class="label">Total prestado</p>
-      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.total_prestado) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Total cobrado</p>
-      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.total_cobrado) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Ganancia generada</p>
-      <p class="value profit font-monospace">${{ "{:,.0f}".format(reporte.ganancia_generada) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Capital pendiente</p>
-      <p class="value font-monospace">${{ "{:,.0f}".format(reporte.capital_pendiente) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Gastos administrativos</p>
-      <p class="value expense font-monospace">${{ "{:,.0f}".format(reporte.total_gastos) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Ganancia neta</p>
-      <p class="value profit font-monospace">${{ "{:,.0f}".format(reporte.ganancia_neta) }}</p>
-    </div>
+<div class="period-nav">
+  {% if previo %}<a class="icon-btn" href="{{ url_for('reports.index', cliente_id=cid, **previo) }}" aria-label="Período anterior">{{ ui.icon('chevron-left', 20) }}</a>{% elif periodo.tipo in ['dia', 'mes', 'anio'] %}<span class="icon-btn is-off" aria-hidden="true">{{ ui.icon('chevron-left', 20) }}</span>{% endif %}
+  <h2>{{ periodo.etiqueta|capitalize }}{% if cliente %}, {{ cliente.nombre_completo|titulo }}{% endif %}</h2>
+  {% if proximo %}<a class="icon-btn" href="{{ url_for('reports.index', cliente_id=cid, **proximo) }}" aria-label="Período siguiente">{{ ui.icon('chevron-right', 20) }}</a>{% elif periodo.tipo in ['dia', 'mes', 'anio'] %}<span class="icon-btn is-off" aria-hidden="true">{{ ui.icon('chevron-right', 20) }}</span>{% endif %}
+</div>
+
+<div class="grid-2">
+  <section class="card" aria-labelledby="t-res">
+    <h2 class="card__title" id="t-res">Movimiento del período</h2>
+    <dl class="ledger">
+      {{ ui.renglon('Capital prestado en créditos nuevos', reporte.capital_prestado|cop) }}
+      {{ ui.renglon('Cobrado (' ~ reporte.n_pagos ~ ' cobro' ~ ('' if reporte.n_pagos == 1 else 's') ~ ')', reporte.cobrado|cop) }}
+      {{ ui.renglon('Ganancia de lo cobrado', reporte.ganancia|cop, 'pos') }}
+      {% if reporte.gastos is not none %}
+      {{ ui.renglon('Gastos', '-' ~ (reporte.gastos|cop) if reporte.gastos else '$0', 'neg' if reporte.gastos else '') }}
+      <div class="ledger__row ledger__row--total"><dt>Ganancia neta</dt><dd class="{{ 'neg' if reporte.ganancia_neta < 0 else 'pos' }}">{{ reporte.ganancia_neta|cop }}</dd></div>
+      {% endif %}
+    </dl>
+    {% if cliente %}<p class="small muted mt-1">Los gastos del negocio no se asignan a un cliente, por eso no aparecen aquí.</p>{% endif %}
+  </section>
+  <section class="card" aria-labelledby="t-hoy">
+    <h2 class="card__title" id="t-hoy">{{ 'Su cartera hoy' if cliente else 'Cartera hoy' }} <span class="muted">no depende del período</span></h2>
+    <dl class="ledger">
+      {{ ui.renglon('Capital por recuperar', reporte.capital_pendiente|cop) }}
+      <p class="ledger__hint">Lo que falta volver del dinero prestado, sin intereses.</p>
+      {{ ui.renglon('Por cobrar con intereses', reporte.pendiente_cobrar|cop) }}
+    </dl>
+  </section>
+</div>
+
+{% if grafico %}
+<section class="card mt-2" aria-labelledby="t-graf">
+  <h2 class="card__title" id="t-graf">Cobrado en el período</h2>
+  <div class="chart" data-grafico="g-reporte"></div>
+  <script type="application/json" id="g-reporte">{{ grafico|tojson }}</script>
+</section>
+{% endif %}
+
+<section class="card card--flush mt-2" aria-labelledby="t-cob">
+  <h2 class="card__title" id="t-cob">Cobros <span class="muted">{{ reporte.n_pagos }}</span></h2>
+  {% if cobros %}
+  <div class="table-wrap">
+    <table class="tabla tabla--filas">
+      <thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Cobrado</th><th class="num">Ganancia</th></tr></thead>
+      <tbody>
+        {% for c in cobros %}
+        <tr>
+          <td data-pos="c">{{ c.fecha|fecha }}</td>
+          <td data-pos="a"><a href="{{ url_for('admin.cliente_detalle', cliente_id=c.cliente_id) }}">{{ c.cliente|titulo }}</a></td>
+          <td data-pos="b" class="num">{{ c.valor|cop }}</td>
+          <td data-pos="d" class="num pos">{{ c.ganancia|cop }}<span class="solo-cel"> de ganancia</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-</div>
+  {% if cobros_truncado %}<p class="table-note">Se muestran los {{ limite }} más recientes. Descarga el Excel para verlos todos.</p>{% endif %}
+  {% else %}
+  <div class="empty"><strong>No hubo cobros en este período</strong></div>
+  {% endif %}
+</section>
 
-<div class="d-flex gap-2">
-  <a href="{{ url_for('reports.exportar_csv', filtro=filtro, cliente_id=cliente_id, mes=mes, desde=desde, hasta=hasta) }}" class="btn btn-outline-light">
-    <i class="bi bi-file-earmark-excel"></i> Exportar Excel (CSV)
-  </a>
-  <a href="{{ url_for('reports.exportar_pdf', filtro=filtro, cliente_id=cliente_id, mes=mes, desde=desde, hasta=hasta) }}" class="btn btn-outline-light">
-    <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
-  </a>
-</div>
-
+<section class="card card--flush mt-2" aria-labelledby="t-cre">
+  <h2 class="card__title" id="t-cre">Créditos otorgados <span class="muted">{{ prestamos|length }}{% if prestamos_truncado %}+{% endif %}</span></h2>
+  {% if prestamos %}
+  <div class="table-wrap">
+    <table class="tabla tabla--filas">
+      <thead><tr><th>Fecha del crédito</th><th>Cliente</th><th class="num">Capital</th><th class="num">Interés</th><th class="num">Total a pagar</th></tr></thead>
+      <tbody>
+        {% for p in prestamos %}
+        <tr>
+          <td data-pos="c"><span class="solo-cel">Crédito del </span>{{ p.fecha|fecha }}</td>
+          <td data-pos="a"><a href="{{ url_for('admin.cliente_detalle', cliente_id=p.cliente_id) }}">{{ p.cliente|titulo }}</a></td>
+          <td data-pos="b" class="num">{{ p.capital|cop }}</td>
+          <td class="num solo-pc">{{ p.interes|pct }}</td>
+          <td data-pos="d" class="num"><span class="solo-cel">Total </span>{{ p.total|cop }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if prestamos_truncado %}<p class="table-note">Se muestran los {{ limite }} más recientes. Descarga el Excel para verlos todos.</p>{% endif %}
+  {% else %}
+  <div class="empty"><strong>No se otorgaron créditos en este período</strong></div>
+  {% endif %}
+</section>
 {% endblock %}
+{% block scripts %}<script src="{{ static_v('js/charts.js') }}" defer></script>{% endblock %}

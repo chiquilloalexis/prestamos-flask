@@ -1,46 +1,53 @@
-from datetime import date
-from decimal import Decimal, InvalidOperation
-
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
-from app import db
-from app.models import Gasto
+from app import db, stats
 from app.auth_utils import admin_required
+from app.models import Gasto
+from app.periodos import resolver_periodo
+from app.security import auditar
+from app.utils import (
+    FECHA_MINIMA, MESES, MONTO_MAXIMO, cop, fecha_corta, hoy_local, limpiar_texto,
+    parse_decimal, parse_fecha, redondear_centavos,
+)
 
 gastos_bp = Blueprint("gastos", __name__, url_prefix="/admin/gastos")
 
-
-def _to_decimal(value, default="0"):
-    try:
-        return Decimal(str(value).replace(",", "."))
-    except (InvalidOperation, TypeError):
-        return Decimal(default)
+TIPOS_PERIODO = ("mes", "anio", "todo")
+LIMITE_FILAS = 500
 
 
 @gastos_bp.route("/")
 @login_required
 @admin_required
 def gastos_list():
-    gastos = Gasto.query.order_by(Gasto.fecha.desc(), Gasto.created_at.desc()).all()
+    hoy = hoy_local()
+    tipo = request.args.get("tipo", "mes")
+    if tipo not in TIPOS_PERIODO:
+        tipo = "mes"
+    periodo = resolver_periodo(tipo, hoy, mes=request.args.get("mes"), anio=request.args.get("anio"))
 
-    hoy = date.today()
-    inicio_mes = hoy.replace(day=1)
-    total_mes = sum(
-        (g.monto for g in gastos if g.fecha >= inicio_mes), Decimal("0")
+    gastos = (
+        Gasto.query.filter(Gasto.fecha >= periodo.inicio, Gasto.fecha <= periodo.fin)
+        .order_by(Gasto.fecha.desc(), Gasto.id.desc())
+        .limit(LIMITE_FILAS + 1)
+        .all()
     )
-    total_general = sum((g.monto for g in gastos), Decimal("0"))
+    truncado = len(gastos) > LIMITE_FILAS
 
-    # Categorías ya usadas, para sugerir en el campo de texto libre (datalist)
-    categorias = sorted({g.categoria for g in gastos if g.categoria})
+    categorias = [c for (c,) in db.session.query(Gasto.categoria).distinct().order_by(Gasto.categoria).limit(50)]
 
     return render_template(
         "gastos_list.html",
-        gastos=gastos,
-        total_mes=total_mes,
-        total_general=total_general,
+        gastos=gastos[:LIMITE_FILAS],
+        truncado=truncado,
+        limite=LIMITE_FILAS,
+        periodo=periodo,
+        total_periodo=stats.total_gastos(periodo.inicio, periodo.fin),
+        por_categoria=stats.gastos_por_categoria(periodo.inicio, periodo.fin),
         categorias=categorias,
-        hoy=hoy,
+        anios=stats.anios_disponibles(hoy),
+        meses=list(enumerate(MESES, start=1)),
     )
 
 
@@ -48,31 +55,37 @@ def gastos_list():
 @login_required
 @admin_required
 def gasto_nuevo():
-    monto = _to_decimal(request.form.get("monto"))
-    categoria = request.form.get("categoria", "").strip()
+    hoy = hoy_local()
+    monto = parse_decimal(request.form.get("monto"))
+    categoria = limpiar_texto(request.form.get("categoria"), 80)
+    texto_fecha = (request.form.get("fecha") or "").strip()
+    fecha = parse_fecha(texto_fecha) if texto_fecha else hoy
 
-    if monto <= 0 or not categoria:
-        flash("Completá la categoría y un monto mayor a cero.", "danger")
+    if monto is None or monto <= 0 or monto > MONTO_MAXIMO or not categoria:
+        flash("Escribe una categoría y un monto mayor a cero.", "danger")
+        return redirect(url_for("gastos.gastos_list"))
+    if fecha is None or fecha < FECHA_MINIMA or fecha > hoy:
+        flash("La fecha del gasto no es válida (no puede ser futura).", "danger")
         return redirect(url_for("gastos.gastos_list"))
 
-    gasto = Gasto(
-        fecha=request.form.get("fecha") or date.today(),
-        categoria=categoria,
-        descripcion=request.form.get("descripcion", "").strip(),
-        monto=monto,
-    )
-    db.session.add(gasto)
+    monto = redondear_centavos(monto)
+    descripcion = limpiar_texto(request.form.get("descripcion"), 255) or None
+    db.session.add(Gasto(fecha=fecha, categoria=categoria, descripcion=descripcion, monto=monto))
+    auditar("gasto_creado", f"{categoria}: {cop(monto)} del {fecha_corta(fecha)}")
     db.session.commit()
-    flash(f"Gasto de ${monto:,.0f} registrado.", "success")
-    return redirect(url_for("gastos.gastos_list"))
+    flash(f"Gasto de {cop(monto)} registrado.", "success")
+    # Si el gasto es de otro mes, llevamos a ese mes para que se vea.
+    return redirect(url_for("gastos.gastos_list", tipo="mes", mes=fecha.month, anio=fecha.year))
 
 
 @gastos_bp.route("/<int:gasto_id>/eliminar", methods=["POST"])
 @login_required
 @admin_required
 def gasto_eliminar(gasto_id):
-    gasto = Gasto.query.get_or_404(gasto_id)
+    gasto = db.get_or_404(Gasto, gasto_id)
+    auditar("gasto_eliminado", f"{gasto.categoria}: {cop(gasto.monto)} del {fecha_corta(gasto.fecha)}")
+    destino = url_for("gastos.gastos_list", tipo="mes", mes=gasto.fecha.month, anio=gasto.fecha.year)
     db.session.delete(gasto)
     db.session.commit()
     flash("Gasto eliminado.", "info")
-    return redirect(url_for("gastos.gastos_list"))
+    return redirect(destino)

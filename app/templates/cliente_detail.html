@@ -1,221 +1,156 @@
 {% extends "base.html" %}
-{% block title %}{{ cliente.nombre_completo }}{% endblock %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ cliente.nombre_completo|titulo }}{% endblock %}
 {% block content %}
-
-<div class="d-flex justify-content-between align-items-start mb-4">
+<header class="page-head">
   <div>
-    <a href="{{ url_for('admin.clientes_list') }}" class="text-muted small text-decoration-none">
-      <i class="bi bi-chevron-left"></i> Clientes
-    </a>
-    <h1 class="h3 mt-1 mb-1">{{ cliente.nombre_completo }}</h1>
-    <div class="text-muted small">
-      <i class="bi bi-credit-card"></i> C.C. {{ cliente.cedula }}
-      {% if cliente.telefono %} · <i class="bi bi-telephone"></i> {{ cliente.telefono }}{% endif %}
-      {% if cliente.direccion or cliente.barrio %} · <i class="bi bi-geo-alt"></i> {{ cliente.direccion }}{% if cliente.direccion and cliente.barrio %}, {% endif %}{{ cliente.barrio }}{% endif %}
+    <a class="crumb" href="{{ url_for('admin.clientes_list') }}">{{ ui.icon('chevron-left', 16) }} Clientes</a>
+    <h1>{{ cliente.nombre_completo|titulo }}</h1>
+    <div class="who">
+      <span>{{ ui.icon('id', 16) }} C.C. {{ cliente.cedula }}</span>
+      {% if cliente.telefono %}<a href="tel:{{ cliente.telefono|replace(' ', '') }}">{{ ui.icon('phone', 16) }} {{ cliente.telefono }}</a>{% endif %}
+      {% if cliente.direccion or cliente.barrio %}<span>{{ ui.icon('pin', 16) }} {{ cliente.direccion }}{% if cliente.direccion and cliente.barrio %}, {% endif %}{{ cliente.barrio|titulo }}</span>{% endif %}
+      <span>{{ ui.estado_cliente(cliente) }}</span>
     </div>
   </div>
-  <div class="d-flex gap-2">
-    {% if current_user.es_admin %}
-    <a href="{{ url_for('admin.cliente_editar', cliente_id=cliente.id) }}" class="btn btn-sm btn-outline-light">
-      <i class="bi bi-pencil"></i> Editar
-    </a>
-    <form method="POST" action="{{ url_for('admin.cliente_eliminar', cliente_id=cliente.id) }}"
-          onsubmit="return confirm('¿Eliminar a {{ cliente.nombre_completo }}? Se borrará todo su historial. No se puede deshacer.');">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-    </form>
+  {% if current_user.es_admin %}
+  <div class="actions">
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('admin.cliente_editar', cliente_id=cliente.id) }}">{{ ui.icon('edit', 16) }} Editar</a>
+    {% if cliente.archivado %}
+      <form method="post" action="{{ url_for('admin.cliente_restaurar', cliente_id=cliente.id) }}">{{ ui.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">{{ ui.icon('refresh', 16) }} Restaurar</button></form>
+    {% elif not activo %}
+      <form method="post" action="{{ url_for('admin.cliente_archivar', cliente_id=cliente.id) }}" data-confirmar="¿Archivar a {{ cliente.nombre_completo|titulo }}? Se oculta de la lista, pero su historial se conserva.">{{ ui.csrf() }}<button class="btn btn--ghost btn--sm" type="submit">{{ ui.icon('archive', 16) }} Archivar</button></form>
+    {% endif %}
+    {% if not cliente.prestamos %}
+      <form method="post" action="{{ url_for('admin.cliente_eliminar', cliente_id=cliente.id) }}" data-confirmar="¿Eliminar a {{ cliente.nombre_completo|titulo }}? Esta acción no se puede deshacer.">{{ ui.csrf() }}<button class="btn btn--danger btn--sm" type="submit">{{ ui.icon('trash', 16) }} Eliminar</button></form>
     {% endif %}
   </div>
-</div>
-
-{% if prestamo %}
-<div class="panel-box mb-4">
-  <div class="row g-4 mb-3">
-    <div class="col-6 col-md-3">
-      <p class="label">Prestado</p>
-      <p class="value font-monospace" style="font-size:1.2rem;">${{ "{:,.0f}".format(prestamo.valor_inicial) }}</p>
-    </div>
-    <div class="col-6 col-md-3">
-      <p class="label">Interés</p>
-      <p class="value font-monospace" style="font-size:1.2rem;">{{ prestamo.porcentaje_interes }}%</p>
-    </div>
-    <div class="col-6 col-md-3">
-      <p class="label">Cuota diaria</p>
-      <p class="value font-monospace" style="font-size:1.2rem;">${{ "{:,.0f}".format(prestamo.valor_cuota) }}</p>
-    </div>
-    <div class="col-6 col-md-3">
-      <p class="label">Cuotas</p>
-      <p class="value font-monospace" style="font-size:1.2rem;">{{ prestamo.cuotas_pagadas }}/{{ prestamo.cantidad_cuotas }}</p>
-    </div>
-  </div>
-  <hr class="border-secondary">
-  <div class="row g-4 align-items-end mb-3">
-    <div class="col-6 col-md-3">
-      <p class="label">Cobrado a la fecha</p>
-      <p class="value font-monospace">${{ "{:,.0f}".format(prestamo.total_cobrado) }}</p>
-    </div>
-    <div class="col-6 col-md-3">
-      <p class="label">Ganancia dejada</p>
-      <p class="value profit font-monospace">${{ "{:,.0f}".format(prestamo.ganancia_generada) }}</p>
-    </div>
-    <div class="col-6 col-md-3">
-      <p class="label">Estado</p>
-      {% if prestamo.estado == 'cancelado' %}
-        <span class="badge badge-cancelado fs-6">Inactivo</span>
-      {% else %}
-        <span class="badge badge-activo fs-6">Activo</span>
-      {% endif %}
-    </div>
-  </div>
-  <div class="row g-4">
-    <div class="col-6">
-      <p class="label">Saldo total a pagar (con ganancia incluida)</p>
-      <p class="value font-monospace" style="font-size:1.8rem;">${{ "{:,.0f}".format(prestamo.saldo_pendiente) }}</p>
-    </div>
-    <div class="col-6">
-      <p class="label">Saldo de capital (sin ganancia)</p>
-      <p class="value font-monospace" style="font-size:1.8rem;">${{ "{:,.0f}".format(prestamo.capital_pendiente) }}</p>
-    </div>
-  </div>
-  <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,.05);">
-    <div class="progress-bar" style="width: {{ (prestamo.total_cobrado / prestamo.total_pagar * 100) if prestamo.total_pagar else 0 }}%; background: #4ade80;"></div>
-  </div>
-  {% if prestamo.observaciones %}
-    <p class="small text-muted mt-3 mb-0"><i class="bi bi-sticky"></i> {{ prestamo.observaciones }}</p>
   {% endif %}
-</div>
+</header>
 
-<div class="panel-box mb-4" style="background:#0f1512;">
-  <p class="small text-muted mb-1"><i class="bi bi-key"></i> Acceso del cliente</p>
-  <p class="small text-muted mb-0">
-    Puede consultar su cuenta en <span class="text-light">/portal</span> ingresando su cédula:
-    <span class="text-light font-monospace">{{ cliente.cedula }}</span>
-  </p>
-</div>
+<div class="stack">
+{% if activo %}
+  {# ---------------- Crédito en curso ---------------- #}
+  <section class="card" aria-labelledby="t-credito">
+    <div class="loan-head">
+      <h2 id="t-credito">{{ ui.icon('calendar', 18) }} Crédito del {{ activo.fecha_prestamo|fecha }}</h2>
+      <span class="badge badge--warn">En curso</span>
+    </div>
+    <div class="saldo">
+      <p class="saldo__label">Debe</p>
+      <p class="saldo__value">{{ activo.saldo_pendiente|cop }}</p>
+      <p class="saldo__sub">Ha pagado {{ activo.total_cobrado|cop }} de {{ activo.total_pagar|cop }}</p>
+    </div>
+    <progress class="bar" max="100" value="{{ activo.progreso }}" aria-label="Avance del pago: {{ activo.progreso }} %">{{ activo.progreso }} %</progress>
+    {{ ui.detalle_credito(activo) }}
+  </section>
 
-{% if not prestamo.esta_saldado %}
-<div class="panel-box mb-4">
-  <p class="label mb-3">Registrar cobro de hoy</p>
-  <form method="POST" action="{{ url_for('admin.registrar_pago', prestamo_id=prestamo.id) }}" class="row g-2">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-12 col-md-4">
-      <input type="number" step="0.01" name="valor_pagado" class="form-control" placeholder="Monto"
-             value="{{ prestamo.valor_cuota|int }}" required>
-    </div>
-    <div class="col-12 col-md-3">
-      <input type="date" name="fecha" class="form-control" value="{{ hoy }}">
-    </div>
-    <div class="col-12 col-md-3">
-      <input type="text" name="observacion" class="form-control" placeholder="Observación (opcional)">
-    </div>
-    <div class="col-12 col-md-2">
-      <button type="submit" class="btn btn-accent w-100">Cobrar</button>
-    </div>
-  </form>
-</div>
-{% endif %}
-
-<p class="label mb-3">Historial de pagos</p>
-<div class="table-responsive mb-4">
-  <table class="table table-dark-custom">
-    <thead>
-      <tr><th>Fecha</th><th>Valor pagado</th><th>Saldo restante</th><th>Observación</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for pago in prestamo.pagos %}
-      <tr>
-        <td>{{ pago.fecha.strftime('%d/%m/%Y') }}</td>
-        <td class="font-monospace">${{ "{:,.0f}".format(pago.valor_pagado) }}</td>
-        <td class="font-monospace text-muted">${{ "{:,.0f}".format(pago.saldo_restante) }}</td>
-        <td class="text-muted small">{{ pago.observacion or '—' }}</td>
-        <td class="text-end">
-          {% if current_user.es_admin %}
-          <form method="POST" action="{{ url_for('admin.pago_eliminar', pago_id=pago.id) }}"
-                onsubmit="return confirm('¿Eliminar este pago?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5" class="text-center text-muted py-4">Todavía no registró pagos.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="panel-box text-center py-5 mb-4">
-  <p class="text-muted mb-0">Este cliente todavía no tiene un préstamo registrado.</p>
-</div>
-{% endif %}
-
-{% if current_user.es_admin and (not prestamo or prestamo.esta_saldado) %}
-<div class="panel-box mb-4" style="max-width: 640px;">
-  <p class="label mb-1">
-    {% if prestamo %}Agregar un nuevo crédito{% else %}Registrar su primer préstamo{% endif %}
-  </p>
-  {% if prestamo %}
-    <p class="small text-muted mb-3">
-      El préstamo anterior ya está saldado, así que se puede abrir un crédito nuevo para este cliente.
-    </p>
-  {% endif %}
-  <form method="POST" action="{{ url_for('admin.prestamo_nuevo', cliente_id=cliente.id) }}" class="row g-2">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-6">
-      <label class="form-label small text-muted">Fecha del préstamo</label>
-      <input type="date" name="fecha_prestamo" class="form-control" value="{{ hoy }}">
-    </div>
-    <div class="col-6">
-      <label class="form-label small text-muted">Cantidad de cuotas</label>
-      <input type="number" name="cantidad_cuotas" id="nc_cuotas" class="form-control" value="20" min="1" required>
-    </div>
-    <div class="col-6">
-      <label class="form-label small text-muted">Valor prestado</label>
-      <input type="number" step="0.01" name="valor_inicial" id="nc_valor" class="form-control" required>
-    </div>
-    <div class="col-6">
-      <label class="form-label small text-muted">% de interés</label>
-      <input type="number" step="0.01" name="porcentaje_interes" id="nc_interes" class="form-control" value="30">
-    </div>
-    <div class="col-12">
-      <label class="form-label small text-muted">Observaciones</label>
-      <textarea name="observaciones" class="form-control" rows="2"></textarea>
-    </div>
-    <div class="col-12">
-      <div class="panel-box" style="background:#0f1512;">
-        <p class="small text-muted mb-1">Total a pagar: <span id="nc_total" class="text-light font-monospace">$0</span></p>
-        <p class="small text-muted mb-1">Valor de la cuota: <span id="nc_cuota" class="text-light font-monospace">$0</span></p>
-        <p class="small text-muted mb-0">Ganancia total prevista: <span id="nc_ganancia" class="font-monospace" style="color:#7fe8a8;">$0</span></p>
+  <section class="card" aria-labelledby="t-cobro">
+    <h2 class="card__title" id="t-cobro">Registrar cobro</h2>
+    {% set sugerido = [activo.valor_cuota, activo.saldo_pendiente]|min %}
+    <form method="post" action="{{ url_for('admin.registrar_pago', prestamo_id=activo.id) }}" class="cobro" data-una-vez>
+      {{ ui.csrf() }}
+      <div class="field">
+        <label for="valor_pagado">Valor cobrado</label>
+        <input class="input input--num" id="valor_pagado" name="valor_pagado" type="text" inputmode="numeric" autocomplete="off" data-moneda required value="{{ sugerido|miles }}">
+        <button type="button" class="btn-link btn-link--plain cobro__fill" data-llenar="valor_pagado" data-valor="{{ activo.saldo_pendiente|int }}">Cobrar todo el saldo ({{ activo.saldo_pendiente|cop }})</button>
       </div>
+      <div class="field">
+        <label for="fecha_cobro">Fecha</label>
+        <input class="input" id="fecha_cobro" name="fecha" type="date" min="{{ activo.fecha_prestamo.isoformat() }}" max="{{ hoy.isoformat() }}" value="{{ hoy.isoformat() }}">
+      </div>
+      <div class="field">
+        <label for="observacion">Observación (opcional)</label>
+        <input class="input" id="observacion" name="observacion" type="text" maxlength="255" autocomplete="off">
+      </div>
+      <button class="btn btn--primary" type="submit">{{ ui.icon('check') }} Registrar cobro</button>
+    </form>
+  </section>
+
+  <div class="notice notice--lock" role="note">
+    {{ ui.icon('lock', 20) }}
+    <div><strong>Nuevo crédito bloqueado</strong>Podrás hacerle un crédito nuevo apenas termine de pagar los {{ activo.saldo_pendiente|cop }} que debe.</div>
+  </div>
+
+  <section class="card card--flush" aria-labelledby="t-cobros">
+    <h2 class="card__title" id="t-cobros">Cobros de este crédito <span class="muted">{{ activo.pagos|length }}</span></h2>
+    {% if activo.pagos %}
+    <div class="table-wrap">
+      <table class="tabla tabla--filas">
+        <thead><tr><th>Fecha</th><th class="num">Valor</th><th>Observación</th><th class="num">Saldo después</th>{% if current_user.es_admin %}<th><span class="sr-only">Acciones</span></th>{% endif %}</tr></thead>
+        <tbody>
+          {% for pago in activo.pagos %}
+          <tr>
+            <td data-pos="a">{{ pago.fecha|fecha }}</td>
+            <td data-pos="b" class="num">{{ pago.valor_pagado|cop }}</td>
+            <td data-pos="c">{{ pago.observacion or '' }}</td>
+            <td data-pos="d" class="num"><span class="solo-cel">Queda </span>{{ pago.saldo_restante|cop }}</td>
+            {% if current_user.es_admin %}
+            <td data-pos="e" class="row-actions">
+              <form method="post" action="{{ url_for('admin.pago_eliminar', pago_id=pago.id) }}" data-confirmar="¿Eliminar el cobro de {{ pago.valor_pagado|cop }} del {{ pago.fecha|fecha }}? El saldo se recalcula.">{{ ui.csrf() }}<button class="btn-link" type="submit">Eliminar</button></form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="col-12">
-      <button type="submit" class="btn btn-accent w-100 mt-2">
-        {% if prestamo %}Crear nuevo crédito{% else %}Registrar préstamo{% endif %}
-      </button>
-    </div>
-  </form>
+    {% else %}
+    <div class="empty"><strong>Sin cobros todavía</strong>Registra el primero en el formulario de arriba.</div>
+    {% endif %}
+  </section>
+
+{% else %}
+  {# ---------------- Sin deuda: se habilita el nuevo crédito ---------------- #}
+  {% if cliente.archivado %}
+  <div class="notice notice--info" role="note">{{ ui.icon('archive', 20) }}<div><strong>Cliente archivado</strong>Restáuralo para poder hacerle un crédito nuevo.</div></div>
+  {% else %}
+    {% if cliente.prestamos %}
+    <div class="notice notice--ok" role="note">{{ ui.icon('check-circle', 20) }}<div><strong>Está al día</strong>Pagó por completo su último crédito (del {{ cliente.prestamos[-1].fecha_prestamo|fecha }}). Ya puedes hacerle uno nuevo.</div></div>
+    {% endif %}
+    <section class="card" aria-labelledby="t-nuevo">
+      <h2 class="card__title" id="t-nuevo">{{ 'Nuevo crédito' if cliente.prestamos else 'Primer crédito' }}</h2>
+      <form method="post" action="{{ url_for('admin.prestamo_nuevo', cliente_id=cliente.id) }}" class="form-narrow" data-una-vez>
+        {{ ui.csrf() }}
+        {{ ui.campos_prestamo(valores) }}
+        <button class="btn btn--primary" type="submit">{{ ui.icon('plus') }} Crear crédito</button>
+      </form>
+    </section>
+  {% endif %}
+{% endif %}
+
+  {# ---------------- Créditos anteriores ---------------- #}
+  {% if historial %}
+  <section class="card card--flush" aria-labelledby="t-historial">
+    <h2 class="card__title" id="t-historial">{{ 'Créditos anteriores' if activo else 'Historial de créditos' }} <span class="muted">{{ historial|length }}</span></h2>
+    {% for p in historial %}
+    <details class="hist" {% if loop.first and not activo %}open{% endif %}>
+      <summary>
+        <span class="hist__fecha">Crédito del {{ p.fecha_prestamo|fecha }}</span>
+        <span class="muted">{{ p.valor_inicial|cop }} prestados</span>
+        <span class="badge badge--ok">{{ ui.icon('check', 14) }} Pagado</span>
+      </summary>
+      <div class="hist__body">
+        {{ ui.detalle_credito(p) }}
+        {% if p.pagos %}
+        <p class="small muted mt-1">{{ p.pagos|length }} cobro{{ '' if p.pagos|length == 1 else 's' }}, el último el {{ p.pagos[0].fecha|fecha }}.</p>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {# ---------------- Portal del cliente ---------------- #}
+  <section class="card" aria-labelledby="t-portal">
+    <h2 class="card__title" id="t-portal">Acceso al portal del cliente</h2>
+    {% if cliente.portal_pin_hash %}
+      <p class="muted mb-1">El cliente consulta su cuenta con su cédula y un PIN de 6 dígitos. Si lo olvidó, genera uno nuevo: el anterior deja de funcionar.</p>
+      <form method="post" action="{{ url_for('admin.cliente_pin', cliente_id=cliente.id) }}" data-confirmar="¿Generar un PIN nuevo? El PIN anterior dejará de funcionar.">{{ ui.csrf() }}<button class="btn btn--ghost" type="submit">{{ ui.icon('key') }} Generar PIN nuevo</button></form>
+    {% else %}
+      <p class="muted mb-1">Este cliente todavía no tiene PIN, así que no puede entrar al portal. Genera uno y entrégaselo.</p>
+      <form method="post" action="{{ url_for('admin.cliente_pin', cliente_id=cliente.id) }}">{{ ui.csrf() }}<button class="btn btn--gold" type="submit">{{ ui.icon('key') }} Generar PIN</button></form>
+    {% endif %}
+  </section>
 </div>
-{% endif %}
-
-{% endblock %}
-
-{% block scripts %}
-{% if current_user.es_admin and (not prestamo or prestamo.esta_saldado) %}
-<script>
-  function ncRecalcular() {
-    const valor = parseFloat(document.getElementById('nc_valor').value) || 0;
-    const pct = parseFloat(document.getElementById('nc_interes').value) || 0;
-    const cuotas = parseInt(document.getElementById('nc_cuotas').value) || 1;
-    const total = valor + (valor * pct / 100);
-    const cuota = cuotas > 0 ? total / cuotas : total;
-    document.getElementById('nc_total').textContent = '$' + total.toLocaleString('es-AR', {maximumFractionDigits: 0});
-    document.getElementById('nc_cuota').textContent = '$' + cuota.toLocaleString('es-AR', {maximumFractionDigits: 0});
-    document.getElementById('nc_ganancia').textContent = '$' + (total - valor).toLocaleString('es-AR', {maximumFractionDigits: 0});
-  }
-  ['nc_valor', 'nc_interes', 'nc_cuotas'].forEach(id => {
-    document.getElementById(id).addEventListener('input', ncRecalcular);
-  });
-</script>
-{% endif %}
 {% endblock %}

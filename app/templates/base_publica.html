@@ -1,0 +1,18 @@
+{% import "_ui.html" as ui with context %}
+<!doctype html>
+<html lang="es-CO">
+<head>
+  {% include "_head.html" %}
+  <title>{% block title %}Mi Cartera{% endblock %} - Mi Cartera</title>
+</head>
+<body>
+<div class="public {% block clase_publica %}{% endblock %}">
+  <main class="public__box">
+    <div class="public__brand">{{ ui.marca() }} Mi Cartera</div>
+    {% include "_avisos.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ static_v('js/app.js') }}" defer></script>
+</body>
+</html>

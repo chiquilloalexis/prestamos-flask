@@ -1,0 +1,88 @@
+{# Piezas reutilizables. Se importan con:  {% import "_ui.html" as ui with context %} #}
+
+{% macro icon(nombre, tam=18) -%}
+<svg class="icon" width="{{ tam }}" height="{{ tam }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ ICONS[nombre] }}</svg>
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{% macro marca() -%}
+<span class="brand__mark" aria-hidden="true">{{ icon('dollar', 18) }}</span>
+{%- endmacro %}
+
+{% macro estado_cliente(cliente) -%}
+{% if cliente.archivado %}<span class="badge">Archivado</span>
+{% elif cliente.prestamo_activo %}<span class="badge badge--warn">Con deuda</span>
+{% elif cliente.prestamos %}<span class="badge badge--ok">{{ icon('check', 14) }} Al día</span>
+{% else %}<span class="badge">Sin créditos</span>{% endif %}
+{%- endmacro %}
+
+{% macro renglon(etiqueta, valor, clase='') -%}
+<div class="ledger__row"><dt>{{ etiqueta }}</dt><dd class="{{ clase }}">{{ valor }}</dd></div>
+{%- endmacro %}
+
+{# Campos de un crédito (al crear un cliente y al hacer un crédito nuevo) #}
+{% macro campos_prestamo(v, sufijo='') -%}
+<div data-prestamo-form>
+  <div class="form-grid">
+    <div class="field">
+      <label for="valor_inicial{{ sufijo }}">Valor prestado (capital)</label>
+      <input class="input input--num" id="valor_inicial{{ sufijo }}" name="valor_inicial" type="text" inputmode="numeric" autocomplete="off" data-moneda placeholder="Ej: 500.000" value="{{ v.valor_inicial }}">
+    </div>
+    <div class="field">
+      <label for="porcentaje_interes{{ sufijo }}">Interés (%)</label>
+      <input class="input input--num" id="porcentaje_interes{{ sufijo }}" name="porcentaje_interes" type="text" inputmode="decimal" autocomplete="off" value="{{ v.porcentaje_interes }}">
+    </div>
+    <div class="field">
+      <label for="cantidad_cuotas{{ sufijo }}">Cantidad de cuotas</label>
+      <input class="input input--num" id="cantidad_cuotas{{ sufijo }}" name="cantidad_cuotas" type="number" inputmode="numeric" min="1" max="1000" value="{{ v.cantidad_cuotas }}">
+    </div>
+    <div class="field">
+      <label for="fecha_prestamo{{ sufijo }}">Fecha del crédito</label>
+      <input class="input" id="fecha_prestamo{{ sufijo }}" name="fecha_prestamo" type="date" max="{{ hoy.isoformat() }}" value="{{ v.fecha_prestamo or hoy.isoformat() }}">
+    </div>
+    <div class="field span-2">
+      <label for="observaciones{{ sufijo }}">Observaciones (opcional)</label>
+      <textarea class="input" id="observaciones{{ sufijo }}" name="observaciones" rows="2" maxlength="500">{{ v.observaciones }}</textarea>
+    </div>
+  </div>
+  <dl class="ledger preview" aria-live="polite">
+    <div class="ledger__row"><dt>Total a pagar</dt><dd data-out="total">$0</dd></div>
+    <div class="ledger__row"><dt>Valor de cada cuota</dt><dd data-out="cuota">$0</dd></div>
+    <div class="ledger__row"><dt>Ganancia prevista</dt><dd data-out="ganancia" class="pos">$0</dd></div>
+  </dl>
+</div>
+{%- endmacro %}
+
+{# Resumen de un crédito, en dos columnas de libro de cuentas #}
+{% macro detalle_credito(p) -%}
+<div class="loan-cols">
+  <dl class="ledger">
+    {{ renglon('Fecha del crédito', p.fecha_prestamo|fecha) }}
+    {{ renglon('Capital prestado', p.valor_inicial|cop) }}
+    {{ renglon('Interés', p.porcentaje_interes|pct) }}
+    {{ renglon('Total a pagar', p.total_pagar|cop) }}
+    {{ renglon('Valor de cada cuota', p.valor_cuota|cop) }}
+  </dl>
+  <dl class="ledger">
+    {{ renglon('Cobrado', p.total_cobrado|cop) }}
+    {{ renglon('Capital por recuperar', p.capital_pendiente|cop) }}
+    {{ renglon('Ganancia cobrada', p.ganancia_generada|cop, 'pos') }}
+    {{ renglon('Cuotas pagadas', p.cuotas_pagadas ~ ' de ' ~ p.cantidad_cuotas) }}
+  </dl>
+</div>
+{% if p.observaciones %}<p class="small muted mt-1">Nota: {{ p.observaciones }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro paginador(pag, endpoint) -%}
+{% if pag.pages and pag.pages > 1 %}
+{% set args = request.args.to_dict() %}
+<nav class="pager" aria-label="Páginas">
+  {% if pag.has_prev %}{% set _ = args.update({'pagina': pag.prev_num}) %}<a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, **args) }}">{{ icon('chevron-left', 16) }} Anterior</a>{% else %}<span></span>{% endif %}
+  <span>Página {{ pag.page }} de {{ pag.pages }}</span>
+  {% if pag.has_next %}{% set _ = args.update({'pagina': pag.next_num}) %}<a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, **args) }}">Siguiente {{ icon('chevron-right', 16) }}</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}

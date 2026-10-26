@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Mi contraseña{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Cambiar mi contraseña</h1><p class="page-head__sub">Al cambiarla se cierran tus sesiones abiertas y entras de nuevo.</p></div></header>
+<form method="post" class="card form-narrow" data-una-vez>
+  {{ ui.csrf() }}
+  <div class="field"><label for="actual">Contraseña actual</label><input class="input" id="actual" name="actual" type="password" autocomplete="current-password" required></div>
+  <div class="field"><label for="nueva">Contraseña nueva</label><input class="input" id="nueva" name="nueva" type="password" autocomplete="new-password" required minlength="8"><span class="field__hint">Mínimo 8 caracteres, que no sean solo números.</span></div>
+  <div class="field"><label for="repetir">Repite la contraseña nueva</label><input class="input" id="repetir" name="repetir" type="password" autocomplete="new-password" required minlength="8"></div>
+  <button class="btn btn--primary" type="submit">Guardar contraseña</button>
+</form>
+{% endblock %}

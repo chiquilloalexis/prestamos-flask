@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}Actividad{% endblock %}
+{% block content %}
+<header class="page-head"><div><h1>Actividad</h1><p class="page-head__sub">Registro de quién hizo qué y cuándo. No se puede modificar.</p></div></header>
+
+<form method="get" class="filters__row mb-1">
+  <div class="field"><label for="f-accion">Tipo de acción</label>
+    <select class="input" id="f-accion" name="accion" data-autoenviar>
+      <option value="">Todas</option>
+      {% for a in acciones %}<option value="{{ a }}" {% if a == accion %}selected{% endif %}>{{ nombres.get(a, a) }}</option>{% endfor %}
+    </select>
+  </div>
+  <noscript><button class="btn btn--ghost" type="submit">Filtrar</button></noscript>
+</form>
+
+<section class="card card--flush">
+  {% if paginacion.items %}
+  <div class="table-wrap">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead>
+      <tbody>
+        {% for r in paginacion.items %}
+        <tr>
+          <td data-label="Fecha">{{ r.creado|fecha_hora }}</td>
+          <td data-label="Usuario">{{ r.usuario or '—' }}</td>
+          <td data-label="Acción">{% if r.accion in ['login_fallido', 'pago_eliminado', 'cliente_eliminado', 'gasto_eliminado', 'usuario_eliminado'] %}<span class="badge badge--neg">{{ nombres.get(r.accion, r.accion) }}</span>{% else %}<span class="badge">{{ nombres.get(r.accion, r.accion) }}</span>{% endif %}</td>
+          <td data-label="Detalle">{{ r.detalle or '—' }}</td>
+          <td data-label="IP" class="small muted">{{ r.ip or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ ui.paginador(paginacion, 'usuarios.actividad') }}
+  {% else %}
+  <div class="empty"><strong>Todavía no hay actividad registrada</strong></div>
+  {% endif %}
+</section>
+{% endblock %}

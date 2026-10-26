@@ -1,73 +1,61 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}Clientes{% endblock %}
 {% block content %}
+<header class="page-head">
+  <div><h1>Clientes</h1><p class="page-head__sub">{{ paginacion.total }} cliente{{ '' if paginacion.total == 1 else 's' }}{% if q %} que coinciden con «{{ q }}»{% endif %}</p></div>
+  <div class="actions"><a class="btn btn--primary" href="{{ url_for('admin.cliente_nuevo') }}">{{ ui.icon('plus') }} Nuevo cliente</a></div>
+</header>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0">Clientes</h1>
-  <a href="{{ url_for('admin.cliente_nuevo') }}" class="btn btn-accent">
-    <i class="bi bi-plus-lg"></i> Nuevo cliente
-  </a>
-</div>
-
-<form method="GET" class="mb-4">
-  <div class="input-group">
-    <span class="input-group-text bg-transparent border-secondary"><i class="bi bi-search text-muted"></i></span>
-    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre, apellido, cédula o teléfono">
-    {% if q %}
-      <a href="{{ url_for('admin.clientes_list') }}" class="btn btn-outline-secondary">Limpiar</a>
-    {% endif %}
-  </div>
+<form method="get" class="search" role="search">
+  <input type="hidden" name="estado" value="{{ estado }}">
+  <label class="sr-only" for="q">Buscar cliente</label>
+  <input class="input" id="q" type="search" name="q" value="{{ q }}" placeholder="Nombre, cédula, teléfono o barrio" autocomplete="off" maxlength="80">
+  <button class="btn btn--ghost" type="submit">{{ ui.icon('search') }} <span>Buscar</span></button>
 </form>
 
-<div class="table-responsive">
-  <table class="table table-dark-custom align-middle">
-    <thead>
-      <tr>
-        <th>Cliente</th>
-        <th>Cédula</th>
-        <th>Teléfono</th>
-        <th>Estado</th>
-        <th>Pendiente</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in clientes %}
-      {% set prestamo = c.prestamos[-1] if c.prestamos else None %}
-      <tr>
-        <td>
-          <a href="{{ url_for('admin.cliente_detalle', cliente_id=c.id) }}" class="text-decoration-none text-light fw-medium">
-            {{ c.nombre_completo }}
-          </a>
-          <div class="text-muted small">{{ c.barrio or '' }}</div>
-        </td>
-        <td class="font-monospace">{{ c.cedula }}</td>
-        <td>{{ c.telefono or '—' }}</td>
-        <td>
-          {% if prestamo %}
-            {% if prestamo.estado == 'cancelado' %}
-              <span class="badge badge-cancelado">Inactivo</span>
-            {% else %}
-              <span class="badge badge-activo">Activo</span>
-            {% endif %}
-          {% else %}
-            <span class="text-muted small">Sin préstamo</span>
-          {% endif %}
-        </td>
-        <td class="font-monospace">
-          {% if prestamo %}${{ "{:,.0f}".format(prestamo.saldo_pendiente) }}{% else %}—{% endif %}
-        </td>
-        <td class="text-end">
-          <a href="{{ url_for('admin.cliente_detalle', cliente_id=c.id) }}" class="btn btn-sm btn-outline-light">
-            Ver <i class="bi bi-chevron-right"></i>
-          </a>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6" class="text-center text-muted py-5">No hay clientes que coincidan con la búsqueda.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<nav class="tabs" aria-label="Filtrar clientes">
+  {% for valor, etiqueta in [('todos', 'Todos'), ('deuda', 'Con deuda'), ('disponibles', 'Al día'), ('archivados', 'Archivados')] %}
+  <a class="tab" href="{{ url_for('admin.clientes_list', estado=valor, q=q or None) }}" {% if estado == valor %}aria-current="true"{% endif %}>{{ etiqueta }}</a>
+  {% endfor %}
+</nav>
 
+<section class="card card--flush">
+  {% if paginacion.items %}
+  <div class="table-wrap">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Cliente</th><th>Estado</th><th class="num">Debe</th><th>Crédito actual</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+      <tbody>
+        {% for c in paginacion.items %}
+        {% set activo = c.prestamo_activo %}
+        <tr>
+          <td class="cell-first">
+            <a class="cell-main" href="{{ url_for('admin.cliente_detalle', cliente_id=c.id) }}">{{ c.nombre_completo|titulo }}</a>
+            <span class="cell-sub">C.C. {{ c.cedula }}{% if c.barrio %}, {{ c.barrio|titulo }}{% endif %}</span>
+          </td>
+          <td data-label="Estado">{{ ui.estado_cliente(c) }}</td>
+          <td data-label="Debe" class="num">{{ activo.saldo_pendiente|cop if activo else '$0' }}</td>
+          <td data-label="Crédito actual">{% if activo %}Del {{ activo.fecha_prestamo|fecha }}{% elif c.prestamos %}<span class="muted">Puede pedir otro</span>{% else %}<span class="muted">Ninguno</span>{% endif %}</td>
+          <td class="row-actions"><a class="btn btn--ghost btn--sm" href="{{ url_for('admin.cliente_detalle', cliente_id=c.id) }}">{{ 'Cobrar' if activo else 'Ver' }} {{ ui.icon('chevron-right', 16) }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ ui.paginador(paginacion, 'admin.clientes_list') }}
+  {% else %}
+  <div class="empty">
+    {% if q %}
+      <strong>Ningún cliente coincide con «{{ q }}»</strong>
+      Revisa cómo está escrito o busca por la cédula.
+    {% elif estado == 'archivados' %}
+      <strong>No hay clientes archivados</strong>
+    {% else %}
+      <strong>Todavía no hay clientes en esta lista</strong>
+      Crea el primero para empezar a registrar créditos y cobros.
+      <br><a class="btn btn--primary" href="{{ url_for('admin.cliente_nuevo') }}">{{ ui.icon('plus') }} Nuevo cliente</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

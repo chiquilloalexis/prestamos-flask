@@ -1,0 +1,79 @@
+{% extends "base_publica.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ 'Mi cuenta' if cliente else 'Consultar mi cuenta' }}{% endblock %}
+{% block clase_publica %}{{ 'public--light' if cliente else '' }}{% endblock %}
+{% block content %}
+{% if not cliente %}
+<div class="public__card">
+  <h1>Consulta tu cuenta</h1>
+  <p class="public__lead">Escribe tu cédula y el PIN de 6 dígitos que te dio tu prestamista.</p>
+  <form method="post" data-una-vez autocomplete="off">
+    {{ ui.csrf() }}
+    <div class="field"><label for="cedula">Cédula</label><input class="input input--num" id="cedula" name="cedula" type="text" inputmode="numeric" required maxlength="25" autofocus></div>
+    <div class="field"><label for="pin">PIN</label><input class="input input--pin" id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" required maxlength="6" minlength="4" autocomplete="one-time-code"></div>
+    <button class="btn btn--primary btn--block" type="submit">Ver mi cuenta</button>
+  </form>
+</div>
+<p class="public__foot">¿No tienes PIN o lo olvidaste? Pídeselo a tu prestamista.</p>
+{% else %}
+{% set activo = cliente.prestamo_activo %}
+<div class="stack">
+  <header class="page-head">
+    <div><p class="page-head__sub">Hola,</p><h1>{{ cliente.nombre_completo|titulo }}</h1></div>
+    <div class="actions"><a class="btn btn--ghost btn--sm" href="{{ url_for('portal.entrada') }}">{{ ui.icon('log-out', 16) }} Salir</a></div>
+  </header>
+
+  {% if activo %}
+  <section class="card" aria-labelledby="t-mi-credito">
+    <div class="loan-head"><h2 id="t-mi-credito">{{ ui.icon('calendar', 18) }} Crédito del {{ activo.fecha_prestamo|fecha }}</h2><span class="badge badge--warn">En curso</span></div>
+    <div class="saldo">
+      <p class="saldo__label">Te falta pagar</p>
+      <p class="saldo__value">{{ activo.saldo_pendiente|cop }}</p>
+      <p class="saldo__sub">Has pagado {{ activo.total_cobrado|cop }} de {{ activo.total_pagar|cop }}</p>
+    </div>
+    <progress class="bar" max="100" value="{{ activo.progreso }}" aria-label="Avance: {{ activo.progreso }} %">{{ activo.progreso }} %</progress>
+    <dl class="ledger mt-1">
+      {{ ui.renglon('Valor prestado', activo.valor_inicial|cop) }}
+      {{ ui.renglon('Interés', activo.porcentaje_interes|pct) }}
+      {{ ui.renglon('Total a pagar', activo.total_pagar|cop) }}
+      {{ ui.renglon('Valor de cada cuota', activo.valor_cuota|cop) }}
+      {{ ui.renglon('Cuotas pagadas', activo.cuotas_pagadas ~ ' de ' ~ activo.cantidad_cuotas) }}
+    </dl>
+  </section>
+
+  <section class="card card--flush" aria-labelledby="t-mis-pagos">
+    <h2 class="card__title" id="t-mis-pagos">Tus pagos <span class="muted">{{ activo.pagos|length }}</span></h2>
+    {% if activo.pagos %}
+    <div class="table-wrap">
+      <table class="tabla tabla--filas">
+        <thead><tr><th>Fecha</th><th class="num">Pagaste</th><th class="num">Te quedó debiendo</th></tr></thead>
+        <tbody>
+          {% for pago in activo.pagos %}
+          <tr><td data-pos="a">{{ pago.fecha|fecha }}</td><td data-pos="b" class="num">{{ pago.valor_pagado|cop }}</td><td data-pos="d" class="num"><span class="solo-cel">Quedaste debiendo </span>{{ pago.saldo_restante|cop }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty"><strong>Todavía no hay pagos registrados</strong></div>
+    {% endif %}
+  </section>
+  {% elif cliente.prestamos %}
+  <div class="notice notice--ok">{{ ui.icon('check-circle', 20) }}<div><strong>Estás al día</strong>No tienes deudas pendientes. Tu último crédito fue del {{ cliente.prestamos[-1].fecha_prestamo|fecha }}.</div></div>
+  {% else %}
+  <div class="notice notice--info">{{ ui.icon('info', 20) }}<div><strong>No tienes créditos registrados</strong></div></div>
+  {% endif %}
+
+  {% set anteriores = cliente.prestamos|reject('sameas', activo)|list|reverse|list %}
+  {% if anteriores %}
+  <section class="card" aria-labelledby="t-mis-anteriores">
+    <h2 class="card__title" id="t-mis-anteriores">Créditos anteriores</h2>
+    <dl class="ledger">
+      {% for p in anteriores %}{{ ui.renglon('Crédito del ' ~ (p.fecha_prestamo|fecha), (p.valor_inicial|cop) ~ ', pagado') }}{% endfor %}
+    </dl>
+  </section>
+  {% endif %}
+  <p class="small muted">Por tu seguridad, cierra esta página cuando termines.</p>
+</div>
+{% endif %}
+{% endblock %}

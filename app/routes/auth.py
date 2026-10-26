@@ -1,38 +1,108 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy import func
+
+from app import db
 from app.models import Usuario
+from app.security import (
+    auditar, bloqueo, gastar_tiempo, ip_cliente, limpiar_fallos, registrar_fallo,
+)
+from app.utils import destino_seguro, limpiar_texto, validar_password
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _destino_inicial(user):
+    return url_for("admin.dashboard" if user.es_admin else "admin.clientes_list")
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        destino = "admin.dashboard" if current_user.es_admin else "admin.clientes_list"
-        return redirect(url_for(destino))
+        return redirect(_destino_inicial(current_user))
 
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
+        cfg = current_app.config
+        username = limpiar_texto(request.form.get("username"), 80)
+        password = request.form.get("password", "")[:256]
+        ip = ip_cliente()
+        clave_usuario = username.lower()
 
-        user = Usuario.query.filter_by(username=username).first()
+        espera = max(
+            bloqueo("login_ip", ip, cfg["RL_LOGIN_POR_IP"]),
+            bloqueo("login_usuario", clave_usuario, cfg["RL_LOGIN_POR_USUARIO"]) if clave_usuario else 0,
+        )
+        if espera:
+            flash(
+                f"Demasiados intentos fallidos. Espera {espera} minuto{'s' if espera != 1 else ''} e intenta de nuevo.",
+                "danger",
+            )
+            return render_template("login.html"), 429
 
-        # Comparación segura: no revelamos si falló el usuario o la clave.
+        user = None
+        if username:
+            user = Usuario.query.filter(func.lower(Usuario.username) == clave_usuario).first()
+
         if user and user.check_password(password):
+            siguiente = destino_seguro(request.args.get("next"))
+            session.clear()  # evita fijación de sesión
             login_user(user, remember=False)
-            next_page = request.args.get("next")
-            flash(f"Bienvenido, {user.nombre_completo or user.username}.", "success")
-            destino = "admin.dashboard" if user.es_admin else "admin.clientes_list"
-            return redirect(next_page or url_for(destino))
+            session.permanent = True
+            limpiar_fallos("login_usuario", clave_usuario)
+            auditar("login", "Inicio de sesión", usuario=user)
+            db.session.commit()
+            flash(f"Bienvenido, {user.nombre_corto}.", "success")
+            return redirect(siguiente or _destino_inicial(user))
 
+        if not user:
+            gastar_tiempo()  # mismo tiempo de respuesta exista o no el usuario
+        registrar_fallo("login_ip", ip)
+        if clave_usuario:
+            registrar_fallo("login_usuario", clave_usuario)
+        auditar("login_fallido", f"Intento con usuario '{username}'" if username else "Intento sin usuario")
+        db.session.commit()
         flash("Usuario o contraseña incorrectos.", "danger")
 
     return render_template("login.html")
 
 
-@auth_bp.route("/logout")
-@login_required
+@auth_bp.route("/logout", methods=["GET", "POST"])
 def logout():
-    logout_user()
+    # Cerrar sesión por GET permitiría que cualquier página ajena (una imagen,
+    # un enlace) te desconecte. Solo se cierra por POST con token CSRF.
+    if request.method == "GET":
+        return redirect(url_for("auth.login"))
+    if current_user.is_authenticated:
+        logout_user()
+    session.clear()
     flash("Sesión cerrada.", "info")
     return redirect(url_for("auth.login"))
+
+
+@auth_bp.route("/cuenta", methods=["GET", "POST"])
+@login_required
+def cuenta():
+    if request.method == "POST":
+        actual = request.form.get("actual", "")
+        nueva = request.form.get("nueva", "")
+        repetir = request.form.get("repetir", "")
+
+        if not current_user.check_password(actual):
+            flash("La contraseña actual no es correcta.", "danger")
+        elif nueva != repetir:
+            flash("La contraseña nueva y su confirmación no coinciden.", "danger")
+        else:
+            error = validar_password(nueva, current_user.username)
+            if error:
+                flash(error, "danger")
+            else:
+                current_user.set_password(nueva)
+                auditar("clave_cambiada", "Cambió su propia contraseña")
+                db.session.commit()
+                # El sello de la sesión depende de la contraseña: hay que
+                # volver a entrar (también se cierran las demás sesiones).
+                logout_user()
+                session.clear()
+                flash("Contraseña actualizada. Inicia sesión con la nueva.", "success")
+                return redirect(url_for("auth.login"))
+    return render_template("cuenta.html")

@@ -1,0 +1,23 @@
+{% import "_ui.html" as ui with context %}
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+{% if mensajes %}
+<div class="flashes" role="region" aria-label="Avisos">
+  {% for categoria, mensaje in mensajes %}
+    {% if categoria == 'pin' %}
+      {% set partes = mensaje.rsplit('||', 1) %}
+      <div class="flash flash--pin" role="status">
+        <strong>PIN del portal para {{ partes[0]|titulo }}</strong>
+        <div class="pin"><strong>{{ partes[1] }}</strong><span class="small">Entrégaselo al cliente junto con su cédula. Por seguridad no se vuelve a mostrar; si lo pierde, genera uno nuevo.</span></div>
+      </div>
+    {% else %}
+      {% set cat = categoria if categoria in ['success', 'danger', 'warning', 'info'] else 'info' %}
+      <div class="flash flash--{{ cat }}" role="{{ 'alert' if cat == 'danger' else 'status' }}">
+        {{ ui.icon('check-circle' if cat == 'success' else ('alert' if cat in ['danger', 'warning'] else 'info'), 20) }}
+        <div class="flash__text">{{ mensaje }}</div>
+        <button type="button" class="icon-btn flash__close" data-cerrar-aviso aria-label="Cerrar aviso">{{ ui.icon('x', 16) }}</button>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
