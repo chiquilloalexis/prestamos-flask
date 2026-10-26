@@ -1,28 +1,20 @@
 -- ============================================================
--- Sistema de Préstamos - Schema de base de datos MySQL
+-- Mi Cartera - Esquema de referencia (MySQL / MariaDB)
 -- ============================================================
--- Este archivo es solo de referencia / respaldo manual.
--- En el uso normal, las tablas las crea SQLAlchemy automáticamente
--- con el comando: flask --app run.py shell -> db.create_all()
--- o corriendo install.sh, que ejecuta ese paso por vos.
+-- NO hace falta ejecutar este archivo: la aplicación crea las tablas y
+-- agrega las columnas nuevas sola al arrancar (o con: flask actualizar-bd),
+-- sin borrar los datos que ya tengas. Queda como documentación.
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS prestamos_db
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE prestamos_db;
-
--- ---------- usuarios ----------
 CREATE TABLE IF NOT EXISTS usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(80) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   nombre_completo VARCHAR(150),
-  rol ENUM('admin', 'empleado') NOT NULL DEFAULT 'admin',
+  rol VARCHAR(20) NOT NULL DEFAULT 'admin',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- clientes ----------
 CREATE TABLE IF NOT EXISTS clientes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   cedula VARCHAR(20) NOT NULL UNIQUE,
@@ -31,28 +23,28 @@ CREATE TABLE IF NOT EXISTS clientes (
   direccion VARCHAR(200),
   telefono VARCHAR(30),
   barrio VARCHAR(100),
+  archivado TINYINT(1) NOT NULL DEFAULT 0,          -- NUEVO: ocultar sin borrar historial
+  portal_pin_hash VARCHAR(255) NULL,                -- NUEVO: PIN del portal (cifrado)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_cedula (cedula)
-) ENGINE=InnoDB;
+  INDEX ix_clientes_archivado (archivado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- prestamos ----------
 CREATE TABLE IF NOT EXISTS prestamos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   cliente_id INT NOT NULL,
   fecha_prestamo DATE NOT NULL,
-  valor_inicial DECIMAL(12,2) NOT NULL,
+  valor_inicial DECIMAL(12,2) NOT NULL,     -- capital
   porcentaje_interes DECIMAL(5,2) NOT NULL DEFAULT 0,
-  total_pagar DECIMAL(12,2) NOT NULL,
+  total_pagar DECIMAL(12,2) NOT NULL,       -- capital + interés
   cantidad_cuotas INT NOT NULL,
   valor_cuota DECIMAL(12,2) NOT NULL,
   observaciones TEXT,
-  estado ENUM('activo', 'cancelado') NOT NULL DEFAULT 'activo',
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
-  INDEX idx_estado (estado)
-) ENGINE=InnoDB;
+  FOREIGN KEY (cliente_id) REFERENCES clientes(id),   -- sin borrado en cascada
+  INDEX ix_prestamos_fecha_prestamo (fecha_prestamo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- pagos ----------
 CREATE TABLE IF NOT EXISTS pagos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   prestamo_id INT NOT NULL,
@@ -61,11 +53,10 @@ CREATE TABLE IF NOT EXISTS pagos (
   saldo_restante DECIMAL(12,2) NOT NULL,
   observacion VARCHAR(255),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (prestamo_id) REFERENCES prestamos(id) ON DELETE CASCADE,
-  INDEX idx_fecha (fecha)
-) ENGINE=InnoDB;
+  FOREIGN KEY (prestamo_id) REFERENCES prestamos(id),
+  INDEX ix_pagos_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- gastos ----------
 CREATE TABLE IF NOT EXISTS gastos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   fecha DATE NOT NULL,
@@ -73,21 +64,33 @@ CREATE TABLE IF NOT EXISTS gastos (
   descripcion VARCHAR(255),
   monto DECIMAL(12,2) NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_fecha_gasto (fecha)
-) ENGINE=InnoDB;
+  INDEX ix_gastos_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- configuraciones ----------
 CREATE TABLE IF NOT EXISTS configuraciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
   clave VARCHAR(80) NOT NULL UNIQUE,
   valor VARCHAR(255)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------- Datos de ejemplo (opcional) ----------
-INSERT INTO clientes (cedula, nombres, apellidos, direccion, telefono, barrio) VALUES
-  ('10345678', 'Marta', 'Gómez', 'Av. Siempreviva 742', '381 555-1234', 'Centro'),
-  ('20987654', 'Rubén', 'Díaz', 'Belgrano 210', '381 555-5678', 'San Cayetano');
+-- NUEVA: bitácora de quién hizo qué
+CREATE TABLE IF NOT EXISTS auditoria (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  creado DATETIME NOT NULL,
+  usuario_id INT,
+  usuario VARCHAR(80),
+  accion VARCHAR(40) NOT NULL,
+  detalle VARCHAR(500),
+  ip VARCHAR(45),
+  INDEX ix_auditoria_creado (creado),
+  INDEX ix_auditoria_accion (accion)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO prestamos (cliente_id, fecha_prestamo, valor_inicial, porcentaje_interes, total_pagar, cantidad_cuotas, valor_cuota, estado) VALUES
-  (1, CURDATE(), 50000, 30, 65000, 20, 3250, 'activo'),
-  (2, CURDATE(), 30000, 30, 39000, 20, 1950, 'activo');
+-- NUEVA: intentos fallidos de acceso (bloqueo temporal anti-adivinanzas)
+CREATE TABLE IF NOT EXISTS intentos_acceso (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tipo VARCHAR(20) NOT NULL,
+  clave VARCHAR(120) NOT NULL,
+  creado DATETIME NOT NULL,
+  INDEX ix_intentos_tipo_clave_creado (tipo, clave, creado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,81 +1,66 @@
 @echo off
+chcp 65001 >nul
 REM ============================================================
-REM Sistema de Prestamos - Instalacion para Windows (local + MySQL)
-REM Doble clic para ejecutar, o correrlo desde la consola (cmd).
+REM  Mi Cartera - Instalacion en Windows (una sola vez)
+REM  Doble clic para ejecutar.
 REM ============================================================
-
-echo == Sistema de Prestamos: instalacion local (Windows) ==
+echo == Mi Cartera: instalacion ==
 echo.
 
-REM 1. Verificar que Python este instalado
 where python >nul 2>nul
 if errorlevel 1 (
-    echo ERROR: no se encontro Python en tu computadora.
-    echo Instalalo desde https://www.python.org/downloads/ 
-    echo IMPORTANTE: al instalar, marca la casilla "Add Python to PATH".
+    echo ERROR: no se encontro Python. Instalalo desde https://www.python.org/downloads/
+    echo IMPORTANTE: marca la casilla "Add Python to PATH" al instalar.
     pause
     exit /b 1
 )
 
-REM 2. Crear entorno virtual
 if not exist "venv" (
     echo Creando entorno virtual...
     python -m venv venv
 )
 call venv\Scripts\activate.bat
 
-REM 3. Instalar dependencias
 echo Instalando dependencias...
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-REM 4. Archivo .env
-if not exist ".env" (
-    copy .env.example .env
-    echo.
-    echo Se creo el archivo .env a partir de .env.example.
-    echo IMPORTANTE: abrilo con el Bloc de notas y completa DB_PASSWORD
-    echo con la contrasena que le pusiste a MySQL al instalarlo.
-    echo.
-    notepad .env
-    echo Presiona una tecla cuando hayas guardado el archivo .env...
-    pause >nul
-)
-
-REM 5. Crear la base de datos en MySQL (si no existe)
-echo Creando base de datos en MySQL...
-for /f "tokens=2 delims==" %%a in ('findstr "DB_USER" .env') do set DB_USER=%%a
-for /f "tokens=2 delims==" %%a in ('findstr "DB_PASSWORD" .env') do set DB_PASSWORD=%%a
-for /f "tokens=2 delims==" %%a in ('findstr "DB_NAME" .env') do set DB_NAME=%%a
-mysql -u %DB_USER% -p%DB_PASSWORD% -e "CREATE DATABASE IF NOT EXISTS %DB_NAME% CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 if errorlevel 1 (
-    echo.
-    echo ERROR: no se pudo conectar a MySQL o crear la base de datos.
-    echo Puede ser alguna de estas causas:
-    echo  1^) El servicio de MySQL no esta corriendo: busca "Servicios" en el
-    echo     menu de Windows y confirma que MySQL80 diga "En ejecucion".
-    echo  2^) La contrasena en el archivo .env no coincide con la que le
-    echo     pusiste a MySQL al instalarlo.
-    echo  3^) El comando "mysql" no esta reconocido: puede que el instalador
-    echo     de MySQL no lo haya agregado al PATH. Abri "MySQL Command Line
-    echo     Client" desde el menu de Windows para verificar que MySQL
-    echo     funciona, y si el problema persiste avisale a Claude.
+    echo ERROR instalando dependencias. Revisa tu conexion a internet.
     pause
     exit /b 1
 )
 
-REM 6. Crear las tablas
-echo Creando tablas...
-set FLASK_APP=run.py
-python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all(); print('Tablas creadas.')"
+if not exist ".env" (
+    copy .env.example .env >nul
+    echo.
+    echo Se creo el archivo .env. Se abrira en el Bloc de notas:
+    echo completa DB_PASSWORD con la contrasena de tu MySQL ^(en XAMPP suele estar vacia^).
+    notepad .env
+)
 
-REM 7. Crear usuario administrador
 echo.
-echo Ahora vas a crear tu usuario administrador.
-flask crear-admin
+echo Preparando la base de datos (crea tablas nuevas y agrega columnas sin borrar datos)...
+set FLASK_APP=run.py
+flask actualizar-bd
+if errorlevel 1 (
+    echo.
+    echo ERROR: no se pudo conectar a la base de datos.
+    echo  - Revisa que MySQL / XAMPP este encendido.
+    echo  - Revisa usuario, contrasena, puerto y nombre de la base en el archivo .env
+    echo  - La base de datos debe existir (creala en phpMyAdmin si hace falta).
+    pause
+    exit /b 1
+)
+
+echo.
+set /p CREAR=Quieres crear un usuario administrador ahora? (s/n):
+if /i "%CREAR%"=="s" flask crear-admin
+
+echo.
+set /p PINS=Generar PIN del portal para los clientes que ya tienes? (s/n):
+if /i "%PINS%"=="s" flask generar-pins
 
 echo.
 echo == Instalacion completa ==
-echo Para iniciar el sistema la proxima vez, hace doble clic en iniciar_windows.bat
-echo.
+echo Para usar el sistema, haz doble clic en iniciar_windows.bat
 pause
